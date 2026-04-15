@@ -1,27 +1,127 @@
 #!/usr/bin/env bash
+# first_run.sh — Initial setup for Metis / Blackstorm Command Center
+#
+# Run once after cloning or after a full docker compose down -v.
+# Safe to re-run: idempotent checks guard each step.
 
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-COMPOSE_FILE="${ROOT_DIR}/infra/docker/docker-compose.yml"
+COMPOSE="docker compose -f ${ROOT_DIR}/infra/docker/docker-compose.yml"
 
-copy_env_if_missing() {
-  local source_file="$1"
-  local target_file="$2"
+# ── Colours ────────────────────────────────────────────────────────────────────
+GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
+info()    { echo -e "${GREEN}[INFO]${NC}  $*"; }
+warn()    { echo -e "${YELLOW}[WARN]${NC}  $*"; }
+error()   { echo -e "${RED}[ERR]${NC}   $*" >&2; exit 1; }
+divider() { echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"; }
 
-  if [ ! -f "${target_file}" ]; then
-    cp "${source_file}" "${target_file}"
-    echo "Created ${target_file}"
+# ── 1. .env files ──────────────────────────────────────────────────────────────
+divider
+info "Checking .env files..."
+
+copy_env() {
+  local src="$1" dst="$2"
+  if [ -f "${dst}" ]; then
+    warn "${dst} already exists — skipping."
+  elif [ -f "${src}" ]; then
+    cp "${src}" "${dst}"
+    info "Created ${dst} from ${src}"
+  else
+    warn "No .env.example found at ${src}. Skipping — using docker-compose env vars."
   fi
 }
 
-copy_env_if_missing "${ROOT_DIR}/apps/api/.env.example" "${ROOT_DIR}/apps/api/.env"
-copy_env_if_missing "${ROOT_DIR}/apps/web/.env.example" "${ROOT_DIR}/apps/web/.env"
+copy_env "${ROOT_DIR}/apps/api/.env.example" "${ROOT_DIR}/apps/api/.env"
+copy_env "${ROOT_DIR}/apps/web/.env.example" "${ROOT_DIR}/apps/web/.env"
 
-docker compose -f "${COMPOSE_FILE}" up -d --build
+# ── 2. Build & start stack ─────────────────────────────────────────────────────
+divider
+info "Building images and starting stack..."
+${COMPOSE} up -d --build
 
-docker compose -f "${COMPOSE_FILE}" exec -T api php artisan key:generate --force
-docker compose -f "${COMPOSE_FILE}" exec -T api php artisan migrate --force
-docker compose -f "${COMPOSE_FILE}" exec -T api php artisan db:seed --force
+# ── 3. Wait for api to become healthy ─────────────────────────────────────────
+divider
+info "Waiting for API container to become healthy (composer install + php-fpm)..."
+info "This can take up to 3 minutes on first run."
 
-echo "First run complete."
+TIMEOUT=300
+ELAPSED=0
+INTERVAL=10
+
+while true; do
+  STATUS=$(docker inspect --format='{{.State.Health.Status}}' \
+    "$(${COMPOSE} ps -q api 2>/dev/null)" 2>/dev/null || echo "unknown")
+
+  if [ "${STATUS}" = "healthy" ]; then
+    info "API is healthy."
+    break
+  fi
+
+  if [ "${ELAPSED}" -ge "${TIMEOUT}" ]; then
+    error "API did not become healthy within ${TIMEOUT}s. Check logs: ${COMPOSE} logs api"
+  fi
+
+  echo -n "  Waiting (${ELAPSED}s / ${TIMEOUT}s) — status: ${STATUS}..."
+  printf '\r'
+  sleep "${INTERVAL}"
+  ELAPSED=$((ELAPSED + INTERVAL))
+done
+
+# ── 4. Storage permissions ─────────────────────────────────────────────────────
+divider
+info "Fixing storage & cache permissions..."
+${COMPOSE} exec -T api chmod -R 775 storage bootstrap/cache
+${COMPOSE} exec -T api chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
+
+# ── 5. App key ─────────────────────────────────────────────────────────────────
+# Only generate if .env exists AND APP_KEY is not already set
+divider
+if [ -f "${ROOT_DIR}/apps/api/.env" ]; then
+  if grep -q "^APP_KEY=$" "${ROOT_DIR}/apps/api/.env" 2>/dev/null || \
+     grep -q "^APP_KEY=base64:$" "${ROOT_DIR}/apps/api/.env" 2>/dev/null || \
+     ! grep -q "^APP_KEY=" "${ROOT_DIR}/apps/api/.env" 2>/dev/null; then
+    info "Generating Laravel app key..."
+    ${COMPOSE} exec -T api php artisan key:generate --force
+  else
+    warn "APP_KEY already set in .env — skipping key:generate."
+  fi
+else
+  warn "No .env file — APP_KEY is taken from docker-compose environment."
+fi
+
+# ── 6. Clear config/cache ─────────────────────────────────────────────────────
+divider
+info "Clearing config and cache..."
+${COMPOSE} exec -T api php artisan config:clear
+${COMPOSE} exec -T api php artisan cache:clear
+
+# ── 7. Migrations ─────────────────────────────────────────────────────────────
+divider
+info "Running database migrations..."
+${COMPOSE} exec -T api php artisan migrate --force
+
+# ── 8. Seed ───────────────────────────────────────────────────────────────────
+divider
+info "Seeding database..."
+${COMPOSE} exec -T api php artisan db:seed --force
+
+# ── 9. Summary ────────────────────────────────────────────────────────────────
+divider
+echo ""
+echo -e "${GREEN}  Metis / Blackstorm Command Center is ready.${NC}"
+echo ""
+echo "  Frontend (Vite):   http://localhost:5173"
+echo "  API (nginx):       http://localhost:8000"
+echo "  MailHog:           http://localhost:8025"
+echo ""
+echo "  Demo accounts (password: Blackstorm123!):"
+echo "    admin@blackstorm.local"
+echo "    operator@blackstorm.local"
+echo "    analyst@blackstorm.local"
+echo "    viewer@blackstorm.local"
+echo ""
+echo "  First migrate after code changes:"
+echo "    make migrate"
+echo ""
+divider

@@ -13,7 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->statefulApi();
+        // statefulApi() intentionally omitted — this app uses Sanctum Bearer tokens only.
+        // Enabling it would trigger CSRF checks on all POST requests from the frontend domain,
+        // because the browser accumulates a session cookie but the React client does not manage XSRF-TOKEN.
         $middleware->append(SecureHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions) {
