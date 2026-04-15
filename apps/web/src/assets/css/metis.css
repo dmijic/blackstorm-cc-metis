@@ -1,0 +1,350 @@
+/* =========================================================
+   Metis Command Center — Theme Override
+   Dark base + accent colors + Night Ops + CRT modes
+   ========================================================= */
+
+/* ── Base overrides (always dark) ─────────────────────────────────────────── */
+:root {
+  --metis-bg-base:      #0d1117;
+  --metis-bg-surface:   #161b22;
+  --metis-bg-elevated:  #21262d;
+  --metis-border:       #30363d;
+  --metis-text-primary: #e6edf3;
+  --metis-text-muted:   #8b949e;
+  --metis-accent:       #4fc3f7;
+  --metis-accent-green: #3fb950;
+  --metis-accent-red:   #f85149;
+  --metis-accent-yellow:#f0c040;
+}
+
+/* Force dark background everywhere */
+body,
+.main-panel,
+.wrapper,
+.content,
+.card,
+.card-header,
+.card-body,
+.card-footer,
+.modal-content,
+.modal-header,
+.modal-body,
+.modal-footer {
+  background-color: var(--metis-bg-base) !important;
+  color: var(--metis-text-primary) !important;
+}
+
+.card {
+  background: var(--metis-bg-surface) !important;
+  border: 1px solid var(--metis-border) !important;
+  border-radius: 8px !important;
+}
+
+.card-header {
+  background: transparent !important;
+  border-bottom: 1px solid var(--metis-bg-elevated) !important;
+}
+
+/* Sidebar */
+.sidebar {
+  background: #0d1117 !important;
+  border-right: 1px solid var(--metis-border) !important;
+}
+
+.sidebar .nav li a {
+  color: var(--metis-text-muted) !important;
+  font-size: 13px;
+}
+
+.sidebar .nav li.active > a,
+.sidebar .nav li a:hover {
+  color: var(--metis-accent) !important;
+  background: rgba(79, 195, 247, 0.08) !important;
+}
+
+.sidebar .nav li.active > a {
+  border-left: 3px solid var(--metis-accent) !important;
+}
+
+/* Topbar / Navbar */
+.navbar,
+.main-panel .navbar {
+  background: rgba(13, 17, 23, 0.95) !important;
+  border-bottom: 1px solid var(--metis-border) !important;
+  backdrop-filter: blur(10px);
+}
+
+/* Tables */
+.table,
+table {
+  color: var(--metis-text-primary) !important;
+}
+
+.table th,
+.table td {
+  border-color: var(--metis-bg-elevated) !important;
+}
+
+.table-hover tbody tr:hover {
+  background-color: rgba(79, 195, 247, 0.04) !important;
+}
+
+/* Forms */
+.form-control,
+.form-control:focus,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="date"],
+select,
+textarea {
+  background: var(--metis-bg-base) !important;
+  border-color: var(--metis-border) !important;
+  color: var(--metis-text-primary) !important;
+}
+
+.form-control:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--metis-accent) !important;
+  box-shadow: 0 0 0 2px rgba(79, 195, 247, 0.15) !important;
+}
+
+/* Badges */
+.badge {
+  font-size: 10px !important;
+  padding: 3px 8px !important;
+  border-radius: 12px !important;
+}
+
+/* Buttons */
+.btn-info,
+.btn-primary {
+  background: var(--metis-accent) !important;
+  border-color: var(--metis-accent) !important;
+  color: #000 !important;
+  font-weight: 600;
+}
+
+.btn-info:hover,
+.btn-primary:hover {
+  background: #81d4fa !important;
+  border-color: #81d4fa !important;
+}
+
+.btn-danger {
+  background: var(--metis-accent-red) !important;
+  border-color: var(--metis-accent-red) !important;
+}
+
+/* Modal overlay */
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.7) !important;
+}
+
+.modal-content {
+  border: 1px solid var(--metis-border) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+/* Alerts */
+.alert-info {
+  background: rgba(79, 195, 247, 0.1) !important;
+  border-color: var(--metis-accent) !important;
+  color: var(--metis-accent) !important;
+}
+
+.alert-warning {
+  background: rgba(240, 192, 64, 0.1) !important;
+  border-color: var(--metis-accent-yellow) !important;
+  color: var(--metis-accent-yellow) !important;
+}
+
+.alert-danger {
+  background: rgba(248, 81, 73, 0.1) !important;
+  border-color: var(--metis-accent-red) !important;
+  color: var(--metis-accent-red) !important;
+}
+
+.alert-success {
+  background: rgba(63, 185, 80, 0.1) !important;
+  border-color: var(--metis-accent-green) !important;
+  color: var(--metis-accent-green) !important;
+}
+
+/* Nav tabs */
+.nav-tabs {
+  border-color: var(--metis-border) !important;
+}
+
+.nav-tabs .nav-link {
+  color: var(--metis-text-muted) !important;
+  border: none !important;
+}
+
+.nav-tabs .nav-link.active,
+.nav-tabs .nav-item.show .nav-link {
+  background: transparent !important;
+  color: var(--metis-accent) !important;
+  border-bottom: 2px solid var(--metis-accent) !important;
+}
+
+/* Pagination */
+.page-link {
+  background: var(--metis-bg-surface) !important;
+  border-color: var(--metis-border) !important;
+  color: var(--metis-text-muted) !important;
+}
+
+.page-item.active .page-link {
+  background: var(--metis-accent) !important;
+  border-color: var(--metis-accent) !important;
+  color: #000 !important;
+}
+
+/* ── Night Ops theme ──────────────────────────────────────────────────────── */
+[data-metis-theme="night_ops"] {
+  --metis-bg-base:      #050507;
+  --metis-bg-surface:   #0a0a0f;
+  --metis-bg-elevated:  #111118;
+  --metis-border:       #1a1a2e;
+  --metis-text-primary: #d4e8d0;
+  --metis-text-muted:   #4a7a46;
+  --metis-accent:       #00ff41;
+  --metis-accent-green: #00ff41;
+}
+
+[data-metis-theme="night_ops"] body,
+[data-metis-theme="night_ops"] .main-panel,
+[data-metis-theme="night_ops"] .wrapper {
+  background-color: var(--metis-bg-base) !important;
+}
+
+[data-metis-theme="night_ops"] .sidebar {
+  background: #050507 !important;
+  border-right-color: #1a1a2e !important;
+}
+
+[data-metis-theme="night_ops"] .sidebar .nav li.active > a {
+  border-left-color: #00ff41 !important;
+  color: #00ff41 !important;
+}
+
+[data-metis-theme="night_ops"] .card {
+  background: var(--metis-bg-surface) !important;
+  border-color: var(--metis-border) !important;
+}
+
+/* ── CRT theme ────────────────────────────────────────────────────────────── */
+[data-metis-theme="crt"] {
+  --metis-bg-base:      #000800;
+  --metis-bg-surface:   #010c01;
+  --metis-bg-elevated:  #031403;
+  --metis-border:       #0a3a0a;
+  --metis-text-primary: #33ff33;
+  --metis-text-muted:   #1a8c1a;
+  --metis-accent:       #33ff33;
+}
+
+[data-metis-theme="crt"] * {
+  font-family: 'Courier New', Courier, monospace !important;
+}
+
+[data-metis-theme="crt"] body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.15) 2px,
+    rgba(0, 0, 0, 0.15) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+[data-metis-theme="crt"] body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.5) 100%);
+  pointer-events: none;
+  z-index: 9998;
+}
+
+[data-metis-theme="crt"] .card,
+[data-metis-theme="crt"] .modal-content {
+  background: var(--metis-bg-surface) !important;
+  border: 1px solid #0a3a0a !important;
+  box-shadow: 0 0 10px rgba(51, 255, 51, 0.2) inset !important;
+}
+
+[data-metis-theme="crt"] a,
+[data-metis-theme="crt"] .btn-info,
+[data-metis-theme="crt"] .badge {
+  color: #33ff33 !important;
+}
+
+/* ── Metis-specific component styles ─────────────────────────────────────── */
+.metis-project-card:hover {
+  box-shadow: 0 4px 20px rgba(79, 195, 247, 0.15) !important;
+}
+
+.metis-layers-panel {
+  position: sticky;
+  top: 0;
+}
+
+/* Project sub-navigation breadcrumbs */
+.metis-project-nav {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--metis-border);
+}
+
+.metis-project-nav a {
+  font-size: 12px;
+  color: var(--metis-text-muted) !important;
+  padding: 4px 10px;
+  border-radius: 20px;
+  text-decoration: none !important;
+  transition: all 0.15s;
+}
+
+.metis-project-nav a:hover,
+.metis-project-nav a.active {
+  background: rgba(79, 195, 247, 0.1) !important;
+  color: var(--metis-accent) !important;
+}
+
+/* Job progress bar animation */
+@keyframes progress-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.job-progress-running {
+  animation: progress-pulse 1.5s ease-in-out infinite;
+}
+
+/* Entity drawer transition */
+.entity-drawer-enter { transform: translateX(100%); }
+.entity-drawer-enter-active { transform: translateX(0); transition: transform 0.25s ease-out; }
+.entity-drawer-exit { transform: translateX(0); }
+.entity-drawer-exit-active { transform: translateX(100%); transition: transform 0.2s ease-in; }
