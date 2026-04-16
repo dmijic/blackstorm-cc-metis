@@ -70,4 +70,9 @@ class AdminUserController extends Controller
     {
         abort_unless($request->user()?->isAdmin(), 403, 'Admin access required.');
     }
+
+    private function ensureSuperAdmin(Request $request): void
+    {
+        abort_unless($request->user()?->isSuperAdmin(), 403, 'SuperAdmin access required.');
+    }
 }

@@ -1,9 +1,9 @@
 /* =========================================================
    Metis Command Center — Theme Override
-   Dark base + accent colors + Night Ops + CRT modes
+   Dark · Angular · Professional
    ========================================================= */
 
-/* ── Base overrides (always dark) ─────────────────────────────────────────── */
+/* ── Design tokens ────────────────────────────────────────────────────────── */
 :root {
   --metis-bg-base:      #0d1117;
   --metis-bg-surface:   #161b22;
@@ -17,7 +17,14 @@
   --metis-accent-yellow:#f0c040;
 }
 
-/* Force dark background everywhere */
+/* ── Global resets — no rounded corners anywhere ──────────────────────────── */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+/* ── Base layout ──────────────────────────────────────────────────────────── */
 body,
 .main-panel,
 .wrapper,
@@ -34,73 +41,229 @@ body,
   color: var(--metis-text-primary) !important;
 }
 
+.wrapper {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Cards ────────────────────────────────────────────────────────────────── */
 .card {
   background: var(--metis-bg-surface) !important;
   border: 1px solid var(--metis-border) !important;
-  border-radius: 8px !important;
+  box-shadow: none !important;
 }
 
 .card-header {
   background: transparent !important;
   border-bottom: 1px solid var(--metis-bg-elevated) !important;
+  padding: 10px 16px !important;
 }
 
-/* Sidebar */
-.sidebar {
+.card-body {
+  padding: 16px !important;
+}
+
+/* ── Sidebar ──────────────────────────────────────────────────────────────── */
+.sidebar,
+.sidebar-wrapper {
   background: #0d1117 !important;
   border-right: 1px solid var(--metis-border) !important;
 }
 
+.sidebar .sidebar-wrapper {
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  padding-bottom: 16px !important;
+}
+
+.sidebar .logo {
+  border-bottom: 1px solid var(--metis-border) !important;
+  padding: 12px 16px !important;
+}
+
+.sidebar .logo .simple-text {
+  color: var(--metis-text-primary) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+}
+
 .sidebar .nav li a {
   color: var(--metis-text-muted) !important;
-  font-size: 13px;
+  font-size: 12px !important;
+  padding: 7px 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  transition: none !important;
+  border-left: 2px solid transparent !important;
+}
+
+.sidebar .nav li a i {
+  font-size: 14px !important;
+  width: 16px !important;
+  text-align: center !important;
 }
 
 .sidebar .nav li.active > a,
 .sidebar .nav li a:hover {
   color: var(--metis-accent) !important;
-  background: rgba(79, 195, 247, 0.08) !important;
+  background: rgba(79, 195, 247, 0.06) !important;
+  border-left-color: var(--metis-accent) !important;
 }
 
-.sidebar .nav li.active > a {
-  border-left: 3px solid var(--metis-accent) !important;
+.sidebar .nav li a:hover {
+  border-left-color: rgba(79, 195, 247, 0.4) !important;
 }
 
-/* Topbar / Navbar */
+/* Group labels in sidebar */
+.nav-group-label p {
+  font-size: 9px !important;
+  letter-spacing: 1.5px !important;
+  text-transform: uppercase !important;
+  color: rgba(79, 195, 247, 0.5) !important;
+  padding: 16px 16px 4px !important;
+  margin: 0 !important;
+  font-weight: 700 !important;
+}
+
+/* ── Topbar / Navbar ──────────────────────────────────────────────────────── */
 .navbar,
 .main-panel .navbar {
-  background: rgba(13, 17, 23, 0.95) !important;
+  background: #0d1117 !important;
   border-bottom: 1px solid var(--metis-border) !important;
-  backdrop-filter: blur(10px);
+  backdrop-filter: none !important;
+  padding: 6px 16px !important;
+  min-height: 48px !important;
 }
 
-/* Tables */
-.table,
-table {
+.navbar .navbar-brand {
+  color: var(--metis-text-primary) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  position: static !important;
+  margin: 0 !important;
+  max-width: min(100%, 520px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.navbar .navbar-wrapper {
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 12px;
+}
+
+.navbar .navbar-nav {
+  flex-wrap: wrap;
+}
+
+/* User photo in navbar */
+.photo {
+  border: 1px solid var(--metis-border) !important;
+}
+
+.photo img {
+  width: 28px !important;
+  height: 28px !important;
+  object-fit: cover !important;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.btn {
+  border-radius: 0 !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  padding: 5px 14px !important;
+  text-transform: uppercase !important;
+  transition: none !important;
+  box-shadow: none !important;
+}
+
+.btn-sm {
+  padding: 3px 10px !important;
+  font-size: 11px !important;
+}
+
+.btn-info,
+.btn-primary {
+  background: var(--metis-accent) !important;
+  border-color: var(--metis-accent) !important;
+  color: #000 !important;
+}
+
+.btn-info:hover,
+.btn-primary:hover {
+  background: #81d4fa !important;
+  border-color: #81d4fa !important;
+  color: #000 !important;
+}
+
+.btn-danger {
+  background: var(--metis-accent-red) !important;
+  border-color: var(--metis-accent-red) !important;
+  color: #fff !important;
+}
+
+.btn-success {
+  background: var(--metis-accent-green) !important;
+  border-color: var(--metis-accent-green) !important;
+  color: #000 !important;
+}
+
+.btn-secondary {
+  background: transparent !important;
+  border-color: var(--metis-border) !important;
+  color: var(--metis-text-muted) !important;
+}
+
+.btn-secondary:hover {
+  border-color: var(--metis-text-muted) !important;
   color: var(--metis-text-primary) !important;
 }
 
-.table th,
-.table td {
-  border-color: var(--metis-bg-elevated) !important;
+.btn-simple,
+.btn-link {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--metis-text-muted) !important;
+  box-shadow: none !important;
+  text-transform: none !important;
 }
 
-.table-hover tbody tr:hover {
-  background-color: rgba(79, 195, 247, 0.04) !important;
+.btn-outline-secondary {
+  background: transparent !important;
+  border-color: var(--metis-border) !important;
+  color: var(--metis-text-muted) !important;
 }
 
-/* Forms */
+.btn-outline-secondary:hover {
+  background: rgba(255,255,255,0.04) !important;
+  color: var(--metis-text-primary) !important;
+}
+
+/* ── Forms ────────────────────────────────────────────────────────────────── */
 .form-control,
-.form-control:focus,
 input[type="text"],
 input[type="email"],
 input[type="password"],
 input[type="date"],
+input[type="search"],
+input[type="number"],
 select,
 textarea {
   background: var(--metis-bg-base) !important;
-  border-color: var(--metis-border) !important;
+  border: 1px solid var(--metis-border) !important;
   color: var(--metis-text-primary) !important;
+  font-size: 12px !important;
+  padding: 6px 10px !important;
+  height: auto !important;
 }
 
 .form-control:focus,
@@ -108,89 +271,188 @@ input:focus,
 select:focus,
 textarea:focus {
   border-color: var(--metis-accent) !important;
-  box-shadow: 0 0 0 2px rgba(79, 195, 247, 0.15) !important;
+  box-shadow: none !important;
+  outline: none !important;
+  background: var(--metis-bg-base) !important;
 }
 
-/* Badges */
-.badge {
+.form-control::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: #484f58 !important;
+}
+
+label {
+  font-size: 11px !important;
+  color: var(--metis-text-muted) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  margin-bottom: 4px !important;
+}
+
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+.table,
+table {
+  color: var(--metis-text-primary) !important;
+  font-size: 12px !important;
+}
+
+.table th,
+.table td {
+  border-color: var(--metis-bg-elevated) !important;
+  padding: 8px 12px !important;
+}
+
+.table th {
   font-size: 10px !important;
-  padding: 3px 8px !important;
-  border-radius: 12px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.8px !important;
+  color: var(--metis-text-muted) !important;
+  background: #0d1117 !important;
+  border-bottom: 1px solid var(--metis-border) !important;
 }
 
-/* Buttons */
-.btn-info,
-.btn-primary {
+.table-hover tbody tr:hover {
+  background-color: rgba(79, 195, 247, 0.03) !important;
+}
+
+.table thead.text-primary tr th {
+  color: var(--metis-text-muted) !important;
+}
+
+/* ── Badges ───────────────────────────────────────────────────────────────── */
+.badge {
+  font-size: 9px !important;
+  padding: 2px 6px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+}
+
+.badge-info,
+.badge-primary {
   background: var(--metis-accent) !important;
-  border-color: var(--metis-accent) !important;
   color: #000 !important;
-  font-weight: 600;
 }
 
-.btn-info:hover,
-.btn-primary:hover {
-  background: #81d4fa !important;
-  border-color: #81d4fa !important;
-}
+.badge-success   { background: var(--metis-accent-green) !important; color: #000 !important; }
+.badge-danger    { background: var(--metis-accent-red) !important;   color: #fff !important; }
+.badge-warning   { background: var(--metis-accent-yellow) !important; color: #000 !important; }
+.badge-secondary { background: var(--metis-bg-elevated) !important;  color: var(--metis-text-muted) !important; }
 
-.btn-danger {
-  background: var(--metis-accent-red) !important;
-  border-color: var(--metis-accent-red) !important;
-}
-
-/* Modal overlay */
+/* ── Modals ───────────────────────────────────────────────────────────────── */
 .modal-backdrop {
-  background: rgba(0, 0, 0, 0.7) !important;
+  background: rgba(0, 0, 0, 0.75) !important;
 }
 
 .modal-content {
+  background: var(--metis-bg-surface) !important;
   border: 1px solid var(--metis-border) !important;
-  border-radius: 12px !important;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7) !important;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+.modal-header {
+  background: #0d1117 !important;
+  border-bottom: 1px solid var(--metis-border) !important;
+  padding: 12px 16px !important;
 }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #484f58; }
 
-/* Alerts */
+.modal-header .modal-title {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--metis-text-primary) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+}
+
+.modal-body {
+  padding: 16px !important;
+  background: var(--metis-bg-surface) !important;
+}
+
+.modal-footer {
+  border-top: 1px solid var(--metis-border) !important;
+  background: #0d1117 !important;
+  padding: 10px 16px !important;
+}
+
+.close,
+.modal-header .close {
+  color: var(--metis-text-muted) !important;
+  text-shadow: none !important;
+  opacity: 1 !important;
+}
+
+/* ── Dropdowns ────────────────────────────────────────────────────────────── */
+.dropdown-menu {
+  background: var(--metis-bg-surface) !important;
+  border: 1px solid var(--metis-border) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+  padding: 4px 0 !important;
+  min-width: 160px !important;
+}
+
+.dropdown-item {
+  color: var(--metis-text-muted) !important;
+  font-size: 12px !important;
+  padding: 6px 14px !important;
+  background: transparent !important;
+}
+
+.dropdown-item:hover {
+  background: rgba(79, 195, 247, 0.06) !important;
+  color: var(--metis-text-primary) !important;
+}
+
+.dropdown-divider {
+  border-color: var(--metis-border) !important;
+  margin: 4px 0 !important;
+}
+
+/* ── Alerts ───────────────────────────────────────────────────────────────── */
+.alert {
+  font-size: 12px !important;
+  padding: 8px 12px !important;
+  border-left-width: 3px !important;
+}
+
 .alert-info {
-  background: rgba(79, 195, 247, 0.1) !important;
+  background: rgba(79, 195, 247, 0.07) !important;
   border-color: var(--metis-accent) !important;
   color: var(--metis-accent) !important;
 }
 
 .alert-warning {
-  background: rgba(240, 192, 64, 0.1) !important;
+  background: rgba(240, 192, 64, 0.07) !important;
   border-color: var(--metis-accent-yellow) !important;
   color: var(--metis-accent-yellow) !important;
 }
 
 .alert-danger {
-  background: rgba(248, 81, 73, 0.1) !important;
+  background: rgba(248, 81, 73, 0.07) !important;
   border-color: var(--metis-accent-red) !important;
   color: var(--metis-accent-red) !important;
 }
 
 .alert-success {
-  background: rgba(63, 185, 80, 0.1) !important;
+  background: rgba(63, 185, 80, 0.07) !important;
   border-color: var(--metis-accent-green) !important;
   color: var(--metis-accent-green) !important;
 }
 
-/* Nav tabs */
+/* ── Nav tabs ─────────────────────────────────────────────────────────────── */
 .nav-tabs {
-  border-color: var(--metis-border) !important;
+  border-bottom: 1px solid var(--metis-border) !important;
 }
 
 .nav-tabs .nav-link {
   color: var(--metis-text-muted) !important;
   border: none !important;
+  font-size: 12px !important;
+  padding: 7px 14px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
 }
 
 .nav-tabs .nav-link.active,
@@ -200,11 +462,18 @@ textarea:focus {
   border-bottom: 2px solid var(--metis-accent) !important;
 }
 
-/* Pagination */
+.nav-tabs .nav-link:hover {
+  color: var(--metis-text-primary) !important;
+  border-bottom: 2px solid var(--metis-border) !important;
+}
+
+/* ── Pagination ───────────────────────────────────────────────────────────── */
 .page-link {
   background: var(--metis-bg-surface) !important;
   border-color: var(--metis-border) !important;
   color: var(--metis-text-muted) !important;
+  font-size: 11px !important;
+  padding: 4px 10px !important;
 }
 
 .page-item.active .page-link {
@@ -213,138 +482,219 @@ textarea:focus {
   color: #000 !important;
 }
 
-/* ── Night Ops theme ──────────────────────────────────────────────────────── */
-[data-metis-theme="night_ops"] {
-  --metis-bg-base:      #050507;
-  --metis-bg-surface:   #0a0a0f;
-  --metis-bg-elevated:  #111118;
-  --metis-border:       #1a1a2e;
-  --metis-text-primary: #d4e8d0;
-  --metis-text-muted:   #4a7a46;
-  --metis-accent:       #00ff41;
-  --metis-accent-green: #00ff41;
+.page-item.disabled .page-link {
+  opacity: 0.3 !important;
 }
 
-[data-metis-theme="night_ops"] body,
-[data-metis-theme="night_ops"] .main-panel,
-[data-metis-theme="night_ops"] .wrapper {
-  background-color: var(--metis-bg-base) !important;
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #21262d; }
+::-webkit-scrollbar-thumb:hover { background: #30363d; }
+
+/* ── Spinner ──────────────────────────────────────────────────────────────── */
+.spinner-border {
+  border-color: var(--metis-accent) !important;
+  border-right-color: transparent !important;
 }
 
-[data-metis-theme="night_ops"] .sidebar {
-  background: #050507 !important;
-  border-right-color: #1a1a2e !important;
+/* ── Tooltips ─────────────────────────────────────────────────────────────── */
+.tooltip-inner {
+  background: var(--metis-bg-elevated) !important;
+  border: 1px solid var(--metis-border) !important;
+  color: var(--metis-text-primary) !important;
+  font-size: 11px !important;
 }
 
-[data-metis-theme="night_ops"] .sidebar .nav li.active > a {
-  border-left-color: #00ff41 !important;
-  color: #00ff41 !important;
+/* ── Progress bars ────────────────────────────────────────────────────────── */
+.progress {
+  background: var(--metis-bg-elevated) !important;
+  height: 4px !important;
 }
 
-[data-metis-theme="night_ops"] .card {
-  background: var(--metis-bg-surface) !important;
+.progress-bar {
+  background: var(--metis-accent) !important;
+}
+
+/* ── Input groups ─────────────────────────────────────────────────────────── */
+.input-group-text {
+  background: var(--metis-bg-elevated) !important;
+  border-color: var(--metis-border) !important;
+  color: var(--metis-text-muted) !important;
+  font-size: 12px !important;
+}
+
+/* ── Collapse toggle bar / navbar toggler ─────────────────────────────────── */
+.navbar-toggler {
   border-color: var(--metis-border) !important;
 }
 
-/* ── CRT theme ────────────────────────────────────────────────────────────── */
-[data-metis-theme="crt"] {
-  --metis-bg-base:      #000800;
-  --metis-bg-surface:   #010c01;
-  --metis-bg-elevated:  #031403;
-  --metis-border:       #0a3a0a;
-  --metis-text-primary: #33ff33;
-  --metis-text-muted:   #1a8c1a;
-  --metis-accent:       #33ff33;
+.navbar-toggler-bar {
+  background: var(--metis-text-muted) !important;
 }
 
-[data-metis-theme="crt"] * {
-  font-family: 'Courier New', Courier, monospace !important;
+/* ── Main panel content spacing ───────────────────────────────────────────── */
+.main-panel {
+  overflow-x: hidden;
 }
 
-[data-metis-theme="crt"] body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.15) 2px,
-    rgba(0, 0, 0, 0.15) 4px
-  );
-  pointer-events: none;
-  z-index: 9999;
+.main-panel > .content {
+  padding: 76px 24px 24px 280px !important;
+  min-height: calc(100vh - 48px) !important;
 }
 
-[data-metis-theme="crt"] body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background: radial-gradient(ellipse at center, transparent 60%, rgba(0, 0, 0, 0.5) 100%);
-  pointer-events: none;
-  z-index: 9998;
+.main-panel.has-project-nav > .content {
+  padding-top: 24px !important;
 }
 
-[data-metis-theme="crt"] .card,
-[data-metis-theme="crt"] .modal-content {
-  background: var(--metis-bg-surface) !important;
-  border: 1px solid #0a3a0a !important;
-  box-shadow: 0 0 10px rgba(51, 255, 51, 0.2) inset !important;
+/* ── Footer ───────────────────────────────────────────────────────────────── */
+footer.footer {
+  background: #0d1117 !important;
+  border-top: 1px solid var(--metis-border) !important;
+  padding: 4px 24px 4px 280px !important;
+  min-height: 36px !important;
 }
 
-[data-metis-theme="crt"] a,
-[data-metis-theme="crt"] .btn-info,
-[data-metis-theme="crt"] .badge {
-  color: #33ff33 !important;
+/* ── Metis project navigation ─────────────────────────────────────────────── */
+.metis-project-nav-shell {
+  padding: 60px 24px 12px 280px;
+  border-bottom: 1px solid var(--metis-border);
+  background: #0d1117;
 }
 
-/* ── Metis-specific component styles ─────────────────────────────────────── */
-.metis-project-card:hover {
-  box-shadow: 0 4px 20px rgba(79, 195, 247, 0.15) !important;
-}
-
-.metis-layers-panel {
-  position: sticky;
-  top: 0;
-}
-
-/* Project sub-navigation breadcrumbs */
 .metis-project-nav {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--metis-border);
+  margin-bottom: 0;
+  padding: 0;
 }
 
 .metis-project-nav a {
-  font-size: 12px;
+  font-size: 11px !important;
   color: var(--metis-text-muted) !important;
-  padding: 4px 10px;
-  border-radius: 20px;
+  padding: 5px 12px !important;
   text-decoration: none !important;
-  transition: all 0.15s;
+  transition: none !important;
+  border-bottom: 2px solid transparent !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  font-weight: 600 !important;
 }
 
-.metis-project-nav a:hover,
+.metis-project-nav a:hover {
+  color: var(--metis-text-primary) !important;
+  border-bottom-color: var(--metis-border) !important;
+  background: transparent !important;
+}
+
 .metis-project-nav a.active {
-  background: rgba(79, 195, 247, 0.1) !important;
   color: var(--metis-accent) !important;
+  border-bottom-color: var(--metis-accent) !important;
+  background: transparent !important;
 }
 
-/* Job progress bar animation */
+.metis-sidebar-backdrop {
+  display: none;
+}
+
+/* ── Job progress animation ───────────────────────────────────────────────── */
 @keyframes progress-pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50%       { opacity: 0.5; }
 }
 
 .job-progress-running {
   animation: progress-pulse 1.5s ease-in-out infinite;
 }
 
-/* Entity drawer transition */
-.entity-drawer-enter { transform: translateX(100%); }
-.entity-drawer-enter-active { transform: translateX(0); transition: transform 0.25s ease-out; }
-.entity-drawer-exit { transform: translateX(0); }
-.entity-drawer-exit-active { transform: translateX(100%); transition: transform 0.2s ease-in; }
+/* ── Entity drawer transition ─────────────────────────────────────────────── */
+.entity-drawer-enter          { transform: translateX(100%); }
+.entity-drawer-enter-active   { transform: translateX(0); transition: transform 0.2s ease-out; }
+.entity-drawer-exit           { transform: translateX(0); }
+.entity-drawer-exit-active    { transform: translateX(100%); transition: transform 0.15s ease-in; }
+
+/* ── Metis project cards ──────────────────────────────────────────────────── */
+.metis-project-card {
+  transition: border-color 0.1s !important;
+}
+
+.metis-project-card:hover {
+  border-color: var(--metis-accent) !important;
+  box-shadow: none !important;
+}
+
+/* ── Selection highlight ──────────────────────────────────────────────────── */
+::selection {
+  background: rgba(79, 195, 247, 0.2);
+  color: var(--metis-text-primary);
+}
+
+/* ── Code / pre ───────────────────────────────────────────────────────────── */
+code, pre {
+  background: #0d1117 !important;
+  border: 1px solid var(--metis-border) !important;
+  color: #79c0ff !important;
+  font-size: 11px !important;
+}
+
+pre {
+  padding: 10px 14px !important;
+}
+
+/* ── Layers panel ─────────────────────────────────────────────────────────── */
+.metis-layers-panel {
+  position: sticky;
+  top: 0;
+}
+
+@media (max-width: 991.98px) {
+  .main-panel > .content {
+    padding: 72px 16px 16px !important;
+  }
+
+  .main-panel.has-project-nav > .content {
+    padding-top: 16px !important;
+  }
+
+  footer.footer {
+    padding: 4px 16px !important;
+  }
+
+  .metis-project-nav-shell {
+    padding: 60px 16px 10px;
+    overflow-x: auto;
+  }
+
+  .metis-project-nav {
+    flex-wrap: nowrap;
+    min-width: max-content;
+  }
+
+  .metis-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    display: block;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1031;
+  }
+
+  .metis-sidebar-shortcut {
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .navbar,
+  .main-panel .navbar {
+    padding: 6px 12px !important;
+  }
+
+  .navbar .navbar-brand {
+    max-width: 180px;
+  }
+
+  .metis-dashboard-grid {
+    grid-template-columns: 1fr !important;
+  }
+}

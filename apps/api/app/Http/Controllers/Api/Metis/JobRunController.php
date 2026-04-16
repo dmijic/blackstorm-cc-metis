@@ -79,6 +79,7 @@ class JobRunController extends Controller
             'iam_audit' => null,
             'hibp_scan' => null,
             'cti_exposure' => null,
+            'wizard_pipeline' => null,
             default      => null,
         };
 
@@ -124,7 +125,8 @@ class JobRunController extends Controller
             'cti_exposure' => CtiExposureJob::dispatch($run->id),
             'wizard_pipeline'=> WizardPipelineJob::dispatch(
                 $run->id,
-                $params['steps'] ?? ['dns', 'ct', 'subfinder', 'github_hints', 'http_probe', 'port_scan', 'directory_enum', 'wayback']
+                $params['steps'] ?? ['dns', 'ct', 'subfinder', 'github_hints', 'http_probe', 'port_scan', 'directory_enum'],
+                $params['optional_steps'] ?? ['wayback']
             ),
         };
 

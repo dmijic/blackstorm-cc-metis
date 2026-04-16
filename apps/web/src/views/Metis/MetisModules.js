@@ -192,6 +192,9 @@ export default function MetisModules() {
       </div>
 
       {error && <Alert color="danger" style={{ fontSize: 12 }}>{error}</Alert>}
+      <Alert color="info" style={{ fontSize: 12 }}>
+        <strong>Quick start:</strong> configure connector credentials in <Link to="/settings/modules" style={{ color: '#58a6ff' }}>External Services</Link>, define project inventory in <Link to={`/metis/projects/${id}/scope`} style={{ color: '#58a6ff' }}>Scope</Link>, then run passive wizard steps before active modules so DNS, IP, and live-host data already exist in the inventory.
+      </Alert>
 
       <Row style={{ marginBottom: 20 }}>
         {operationalModules.map(module => {

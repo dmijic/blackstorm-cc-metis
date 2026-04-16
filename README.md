@@ -1,13 +1,13 @@
-# Metis · Blackstorm Command Center
+# Metis · Command Center
 
-Autorizirana platforma za Recon & Attack Surface Management (ASM) s Command Center UX-om.
+Autorizirana platforma za Recon & Attack Surface Management (ASM).
 
 ## Stack
 
 | Sloj | Tehnologija |
 |------|-------------|
 | Backend | Laravel 11 · PHP 8.4 · Sanctum Bearer auth |
-| Frontend | React 18 · Vite · Black Dashboard (dark theme) |
+| Frontend | React 18 · Vite · Dark theme |
 | Queue | Redis · Laravel queue worker |
 | DB | PostgreSQL 16 |
 | Tools sidecar | Go (subfinder · httpx · naabu) |
@@ -52,7 +52,7 @@ make first-run
 Skripta automatski:
 1. Kreira `.env` iz `.env.example` (ako postoji)
 2. Builda i podiže cijeli Docker stack
-3. Čeka da `api` container postane `healthy` (composer install + php-fpm)
+3. Čeka da `api` container postane `healthy`
 4. Popravlja storage/cache permissione
 5. Generira Laravel app key (samo ako nije postavljen)
 6. Čisti config i cache
@@ -69,16 +69,97 @@ Skripta automatski:
 | PostgreSQL | localhost:5432 |
 | Redis | localhost:6379 |
 
-## Demo računi
+---
 
-Lozinka za sve: `Blackstorm123!`
+## ⚡ God Mode (SuperAdmin)
 
-| Korisnik | Email |
-|----------|-------|
-| Admin | admin@blackstorm.local |
-| Operator | operator@blackstorm.local |
-| Analyst | analyst@blackstorm.local |
-| Viewer | viewer@blackstorm.local |
+God Mode je posebna administrativna razina pristupa unutar Command Centera.
+
+### Što je God Mode?
+
+- **SuperAdmin** je najviša razina pristupa — iznad normalnog Admin korisnika
+- SuperAdmin korisnik vidi oznaku `GOD MODE` na dashboardu
+- SuperAdmin može dodijeliti SuperAdmin rolu drugim korisnicima
+- SuperAdmin može editirati sve korisnike, uključujući druge SuperAdmin korisnike
+- Svi adminovi endpointi dostupni su SuperAdminu (`isAdmin()` vraća `true` za oba)
+- SuperAdmin može konfigurirati sve podržane konektore, AI providere, korisnike i module u standardnom buildu
+
+> Napomena: u standardnom buildu SuperAdmin **ne zaobilazi** verified-scope zaštite za aktivne probe i ne otključava research placeholder module poput phishing ili post-exploitation funkcionalnosti. Passive recon i administracija su dostupni odmah, ali aktivni koraci i dalje poštuju sigurnosne guardraile.
+
+### Automatski kreiran SuperAdmin
+
+God Mode je **automatski uključen** putem seed korisnika koji se kreira pri prvom pokretanju:
+
+| Polje | Vrijednost |
+|-------|-----------|
+| Email | `root@commandcenter.local` |
+| Password | `toor` |
+| Naziv | `root` |
+| Role | `SuperAdmin` |
+
+> ⚠️ **Sigurnosna napomena**: U produkcijskom okruženju odmah promijeni lozinku SuperAdmin korisnika
+> ili ga deaktiviraj ako nije potreban.
+
+### Prijava kao SuperAdmin
+
+```bash
+# API login
+curl -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"root@commandcenter.local","password":"toor","device_name":"cli"}'
+```
+
+Ili putem UI-a na http://localhost:5173:
+- Email: `root@commandcenter.local`
+- Password: `toor`
+
+### Kreiranje novog SuperAdmin korisnika
+
+Samo postojeći SuperAdmin može dodijeliti SuperAdmin rolu drugom korisniku.
+
+**Putem UI-a** (Settings → Users):
+1. Prijavi se kao SuperAdmin
+2. Otvori Settings → Users
+3. Klikni "Add User" ili "Edit" na postojećem korisniku
+4. Odaberi rolu "SuperAdmin (God Mode)"
+
+**Putem API-a** (kao SuperAdmin korisnik):
+```bash
+curl -X POST http://localhost:8000/api/metis/users \
+  -H "Authorization: Bearer <SUPERADMIN_TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"novi_admin","email":"novi@example.local","password":"StrongPass123!","role":"SuperAdmin"}'
+```
+
+### Uloga implementacija
+
+| Role | isAdmin() | isSuperAdmin() | Može dodijeliti SuperAdmin |
+|------|-----------|----------------|---------------------------|
+| SuperAdmin | ✓ | ✓ | ✓ |
+| Admin | ✓ | ✗ | ✗ |
+| Operator | ✗ | ✗ | ✗ |
+| Analyst | ✗ | ✗ | ✗ |
+| Viewer | ✗ | ✗ | ✗ |
+
+### Resetiranje SuperAdmin lozinke
+
+```bash
+# Direktno u bazu (Docker)
+docker compose -f infra/docker/docker-compose.yml exec api \
+  php artisan tinker --execute="App\Models\User::where('email','root@commandcenter.local')->update(['password'=>bcrypt('nova_lozinka')])"
+```
+
+---
+
+## Demo računi (seed)
+
+| Korisnik | Email | Lozinka | Role |
+|----------|-------|---------|------|
+| root | root@commandcenter.local | toor | **SuperAdmin** |
+| Admin | admin@blackstorm.local | Blackstorm123! | Admin |
+| Operator | operator@blackstorm.local | Blackstorm123! | Operator |
+| Analyst | analyst@blackstorm.local | Blackstorm123! | Analyst |
+| Viewer | viewer@blackstorm.local | Blackstorm123! | Viewer |
 
 ## Make targeti
 
@@ -115,7 +196,7 @@ docker compose -f infra/docker/docker-compose.yml exec api php artisan queue:wor
 # Login — vraća Bearer token
 curl -X POST http://localhost:8000/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin@blackstorm.local","password":"Blackstorm123!","device_name":"cli"}'
+  -d '{"email":"root@commandcenter.local","password":"toor","device_name":"cli"}'
 
 # Korisnik (autentificiran)
 curl http://localhost:8000/api/me \
@@ -123,8 +204,7 @@ curl http://localhost:8000/api/me \
 ```
 
 > **Napomena o autentifikaciji:** Aplikacija koristi isključivo Sanctum Bearer token auth.
-> Cookie-based SPA auth (`statefulApi`) je namjerno isključen jer uzrokuje CSRF token mismatch
-> greške kad browser akumulira session cookie, a React klient ne šalje XSRF-TOKEN header.
+> Cookie-based SPA auth je namjerno isključen.
 
 ## Metis workflow
 
@@ -137,22 +217,49 @@ Projects → Scope → Domain Verification → Wizard Pipeline → Entities → 
 1. **Kreiraj projekt** — `/metis/projects` → New Project
 2. **Definiraj scope** — root domene, IP rangevi, GitHub orgs, email domene
 3. **Verificiraj domene** — DNS TXT record ili `/.well-known/metis-verification/<token>`
-4. **Pokreni wizard** — DNS · CT · Subfinder · GitHub hints · HTTP probe · Port scan · Wayback
-5. **Pretraži entitete** — Domene, hostovi, URL-ovi s layer toggleovima
-6. **Logiraj findinge** — severity, type, confidence, evidence
-7. **Generiraj report** — JSON/HTML s opcijalnim AI executive briefinigom
+4. **Konfiguriraj konektore po potrebi** — Settings → External Services za GitHub, HIBP, Shodan, Slack, Teams, Jira, n8n i ostale integracije; Settings → AI Providers za LLM providere
+5. **Pokreni wizard** — DNS · CT · Subfinder · GitHub hints · HTTP probe · Port scan · Directory Discovery · opcionalni Wayback
+6. **Pregledaj lanac rezultata** — wizard prenosi domene → DNS/IP resolution → live hostove → aktivne korake
+7. **Pretraži entitete** — domene, hostovi i URL-ovi s DNS zapisima, IP adresama i evidence prikazom
+8. **Pokreni module** — HIBP, CTI, IAM audit, remediation validation i ostale sigurne module po potrebi
+9. **Logiraj findinge** — severity, type, confidence, evidence
+10. **Generiraj report** — JSON/HTML/PDF s opcionalnim AI executive briefingom
+
+### External Services konfiguracija
+
+`Settings → External Services` je globalni katalog konektora. Svaka kartica prikazuje:
+
+- kratke korake za konfiguraciju
+- polja koja trebaš unijeti
+- guardrail za taj servis
+- link na službenu dokumentaciju providera
+
+Praktični flow:
+
+1. Otvori `Settings → External Services`
+2. Nađi željeni servis, npr. `GitHub Public Code Hints`, `HIBP` ili `Shodan`
+3. Unesi tražene API ključeve ili webhook URL-ove
+4. Klikni `Save` i uključi `Enable`
+5. Vrati se u `Project → Modules` ili `Project → Wizard`
+6. Pokreni odgovarajući module ili wizard korak
+
+Napomena:
+
+- `External Services` služi za OSINT, CTI i webhook/integration konektore
+- `AI Providers` služi samo za LLM pristup
+- `Scope` mora sadržavati root domene, GitHub orgove ili email domene da bi neki konektori imali nad čime raditi
 
 ## Sigurnosne mjere
 
-- **Samo verificirani scope**: Aktivni scanovi (HTTP probe, port scan) zahtijevaju verificirane domene
+- **Samo verificirani scope**: Aktivni scanovi zahtijevaju verificirane domene
 - **Bez surveillance**: Samo javno dostupni podaci — DNS, crt.sh, Wayback, RDAP, Shodan, HIBP
 - **Enkriptirani API ključevi**: AES-256 via Laravel `Crypt::encryptString()`, nikad plaintext
 - **Audit log**: Sve akcije se bilježe u `metis_audit_logs`
-- **God Mode**: Samo super-admin može postaviti `METIS_GOD_MODE=true`
+- **God Mode**: Automatski aktivan za korisnika `root` (role: SuperAdmin)
 
 ## Threat Intel integracije
 
-Konfiguriraju se kroz Settings → Intel Providers:
+Konfiguriraju se kroz Settings → External Services:
 
 | Provider | Tip | Opis |
 |----------|-----|------|
@@ -160,9 +267,7 @@ Konfiguriraju se kroz Settings → Intel Providers:
 | Censys | OSINT | Certificate & host search |
 | LeakIX | OSINT | Exposed services & leaks |
 | HIBP | Breach | Email domain breach lookup |
-| Flare / SpyCloud / DarkOwl | Dark web | Komercijalni dark web monitoring |
 | GitHub | Paste | Code search po ključnim riječima |
-| Telegram Bot | Channel | Monitoring threat intel kanala |
 
 ## Docker kontejneri
 
@@ -171,13 +276,9 @@ Konfiguriraju se kroz Settings → Intel Providers:
 | `postgres` | Baza podataka |
 | `redis` | Queue i cache |
 | `api` | PHP-FPM + composer install |
-| `worker` | Queue worker (čeka `api: healthy`) |
-| `scheduler` | Cron scheduler (čeka `api: healthy`) |
+| `worker` | Queue worker |
+| `scheduler` | Cron scheduler |
 | `web` | Vite dev server |
 | `proxy` | nginx reverse proxy |
 | `go-tools` | Subfinder / httpx / naabu HTTP API |
 | `mailhog` | SMTP catch-all za razvoj |
-
-> `worker` i `scheduler` NE pokreću `composer install` — dijele `/var/www` volumen s `api`
-> containerom koji jedini instalira dependencije. Ovo sprječava race condition koji je uzrokovao
-> restart loop.

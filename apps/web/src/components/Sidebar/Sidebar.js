@@ -1,20 +1,3 @@
-/*!
-
-=========================================================
-* Black Dashboard React v1.2.2
-=========================================================
-
-* Product Page: https://www.creative-tim.com/product/black-dashboard-react
-* Copyright 2023 Creative Tim (https://www.creative-tim.com)
-* Licensed under MIT (https://github.com/creativetimofficial/black-dashboard-react/blob/master/LICENSE.md)
-
-* Coded by Creative Tim
-
-=========================================================
-
-* The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-*/
 /*eslint-disable*/
 import React from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
@@ -28,8 +11,6 @@ import PerfectScrollbar from "perfect-scrollbar";
 import { Nav } from "reactstrap";
 import { BackgroundColorContext } from "contexts/BackgroundColorContext";
 
-var ps;
-
 function Sidebar(props) {
   const location = useLocation();
   const sidebarRef = React.useRef(null);
@@ -41,19 +22,19 @@ function Sidebar(props) {
       : "";
   };
   React.useEffect(() => {
-    if (navigator.platform.indexOf("Win") > -1) {
-      ps = new PerfectScrollbar(sidebarRef.current, {
+    if (navigator.platform.indexOf("Win") > -1 && sidebarRef.current) {
+      const scrollbar = new PerfectScrollbar(sidebarRef.current, {
         suppressScrollX: true,
         suppressScrollY: false,
       });
+
+      return function cleanup() {
+        scrollbar.destroy();
+      };
     }
-    // Specify how to clean up after this effect:
-    return function cleanup() {
-      if (navigator.platform.indexOf("Win") > -1) {
-        ps.destroy();
-      }
-    };
-  });
+
+    return undefined;
+  }, []);
   const linkOnClick = () => {
     document.documentElement.classList.remove("nav-open");
     props.closeSidebar?.();
@@ -155,7 +136,7 @@ function Sidebar(props) {
               })()}
               {/* Command palette hint */}
               <li style={{ marginTop: 24, padding: '0 16px' }}>
-                <div style={{
+                <div className="metis-sidebar-shortcut" style={{
                   background: 'rgba(255,255,255,0.04)', border: '1px solid #30363d',
                   borderRadius: 6, padding: '7px 10px', fontSize: 11, color: '#555',
                   display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',

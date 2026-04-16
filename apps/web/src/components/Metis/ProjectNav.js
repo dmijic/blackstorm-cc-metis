@@ -18,7 +18,7 @@ export default function ProjectNav() {
   if (!id) return null;
 
   return (
-    <div className="metis-project-nav" style={{ paddingLeft: 0, marginBottom: 0, paddingBottom: 12 }}>
+    <div className="metis-project-nav" style={{ paddingLeft: 0, marginBottom: 0 }}>
       {NAV_ITEMS.map(item => (
         <NavLink
           key={item.to}

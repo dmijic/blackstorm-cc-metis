@@ -3,9 +3,9 @@ import { Button, Spinner } from 'reactstrap';
 
 const STEPS = [
   { id: 1, key: 'scope',   label: 'Define Scope',      icon: 'fas fa-crosshairs',    desc: 'Set root domains, keywords, IP ranges, GitHub orgs.' },
-  { id: 2, key: 'passive', label: 'Passive OSINT',     icon: 'fas fa-satellite-dish', desc: 'DNS, CT, RDAP/WHOIS, Subfinder, and GitHub public hints.' },
-  { id: 3, key: 'validate',label: 'Validate Live',     icon: 'fas fa-broadcast-tower',desc: 'HTTP probe, port scan, and directory discovery on verified scope.' },
-  { id: 4, key: 'history', label: 'History',            icon: 'fas fa-history',       desc: 'Wayback Machine URL archive fetch.' },
+  { id: 2, key: 'passive', label: 'Passive OSINT',     icon: 'fas fa-satellite-dish', desc: 'DNS records, CT, RDAP, Subfinder, GitHub hints, and IP enrichment.' },
+  { id: 3, key: 'validate',label: 'Validate Live',     icon: 'fas fa-broadcast-tower',desc: 'HTTP probe, port scan, and directory discovery using prior passive results.' },
+  { id: 4, key: 'history', label: 'History',            icon: 'fas fa-history',       desc: 'Optional Wayback Machine fetch for legacy URLs and path discovery.' },
   { id: 5, key: 'surface', label: 'Attack Surface Map', icon: 'fas fa-map',          desc: 'Deduplicate and classify all discovered assets.' },
   { id: 6, key: 'report',  label: 'Documentation',     icon: 'fas fa-file-alt',       desc: 'Generate PDF/HTML/JSON report with AI executive brief.' },
 ];

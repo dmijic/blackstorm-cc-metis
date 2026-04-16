@@ -149,7 +149,7 @@ export default function MetisProjects() {
       {/* Header */}
       <Row style={{ marginBottom: 24 }}>
         <Col>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
             <div>
               <h3 style={{ color: '#e6edf3', margin: 0 }}>Projects</h3>
               <p style={{ color: '#8b949e', fontSize: 13, marginTop: 4 }}>

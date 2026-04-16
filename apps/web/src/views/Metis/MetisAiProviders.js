@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from 'contexts/AuthContext';
 import { getAiProviders, createAiProvider, updateAiProvider, deleteAiProvider } from 'api/metisApi';
 import {
@@ -175,6 +176,9 @@ export default function MetisAiProviders() {
       <Alert color="info" style={{ fontSize: 12, marginBottom: 24, borderRadius: 6 }}>
         <i className="fas fa-shield-alt" style={{ marginRight: 6 }} />
         API keys are encrypted at rest. They are never sent to the frontend or logged. Only the server uses them to call AI APIs.
+        <div style={{ marginTop: 8 }}>
+          OSINT, CTI, and webhook connectors are configured separately in <Link to="/settings/modules" style={{ color: '#58a6ff' }}>External Services</Link>.
+        </div>
       </Alert>
 
       {loading ? (

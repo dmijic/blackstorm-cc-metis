@@ -1,20 +1,3 @@
-/*!
-
-=========================================================
-* Black Dashboard React v1.2.2
-=========================================================
-
-* Product Page: https://www.creative-tim.com/product/black-dashboard-react
-* Copyright 2023 Creative Tim (https://www.creative-tim.com)
-* Licensed under MIT (https://github.com/creativetimofficial/black-dashboard-react/blob/master/LICENSE.md)
-
-* Coded by Creative Tim
-
-=========================================================
-
-* The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-
-*/
 import React from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 // javascript plugin used to create scrollbars on windows
@@ -24,7 +7,6 @@ import PerfectScrollbar from "perfect-scrollbar";
 import AdminNavbar from "components/Navbars/AdminNavbar.js";
 import Footer from "components/Footer/Footer.js";
 import Sidebar from "components/Sidebar/Sidebar.js";
-import FixedPlugin from "components/FixedPlugin/FixedPlugin.js";
 import ProjectNav from "components/Metis/ProjectNav.js";
 
 import routes from "routes.js";
@@ -32,8 +14,6 @@ import routes from "routes.js";
 import logo from "assets/img/react-logo.png";
 import { useAuth } from "contexts/AuthContext.js";
 import { BackgroundColorContext } from "contexts/BackgroundColorContext";
-
-var ps;
 
 function Admin() {
   const location = useLocation();
@@ -44,52 +24,76 @@ function Admin() {
     document.documentElement.className.indexOf("nav-open") !== -1
   );
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+  const hasProjectNav = /\/metis\/projects\/\d+\//.test(location.pathname);
 
   React.useEffect(() => {
-    if (navigator.platform.indexOf("Win") > -1) {
-      document.documentElement.className += " perfect-scrollbar-on";
+    if (navigator.platform.indexOf("Win") > -1 && mainPanelRef.current) {
+      document.documentElement.classList.add("perfect-scrollbar-on");
       document.documentElement.classList.remove("perfect-scrollbar-off");
-      ps = new PerfectScrollbar(mainPanelRef.current, {
-        suppressScrollX: true,
+      const scrollbars = [
+        new PerfectScrollbar(mainPanelRef.current, {
+          suppressScrollX: true,
+        }),
+      ];
+
+      document.querySelectorAll(".table-responsive").forEach((table) => {
+        scrollbars.push(
+          new PerfectScrollbar(table, {
+            suppressScrollX: false,
+          })
+        );
       });
-      let tables = document.querySelectorAll(".table-responsive");
-      for (let i = 0; i < tables.length; i++) {
-        ps = new PerfectScrollbar(tables[i]);
-      }
-    }
-    // Specify how to clean up after this effect:
-    return function cleanup() {
-      if (navigator.platform.indexOf("Win") > -1) {
-        ps.destroy();
+
+      return function cleanup() {
+        scrollbars.forEach((instance) => instance.destroy());
         document.documentElement.classList.add("perfect-scrollbar-off");
         document.documentElement.classList.remove("perfect-scrollbar-on");
+      };
+    }
+
+    return undefined;
+  }, [location.pathname]);
+
+  React.useEffect(() => {
+    if (window.innerWidth < 992) {
+      document.documentElement.classList.remove("nav-open");
+      setsidebarOpened(false);
+    }
+  }, [location.pathname]);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 992) {
+        document.documentElement.classList.remove("nav-open");
+        setsidebarOpened(false);
       }
     };
-  });
+
+    window.addEventListener("resize", handleResize);
+
+    return function cleanup() {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, []);
+
   React.useEffect(() => {
-    if (navigator.platform.indexOf("Win") > -1) {
-      let tables = document.querySelectorAll(".table-responsive");
-      for (let i = 0; i < tables.length; i++) {
-        ps = new PerfectScrollbar(tables[i]);
-      }
-    }
     document.documentElement.scrollTop = 0;
     document.scrollingElement.scrollTop = 0;
     if (mainPanelRef.current) {
       mainPanelRef.current.scrollTop = 0;
     }
-  }, [location]);
+  }, [location.pathname]);
 
-  // this function opens and closes the sidebar on small devices
-  const toggleSidebar = () => {
-    document.documentElement.classList.toggle("nav-open");
-    setsidebarOpened(!sidebarOpened);
-  };
+  const toggleSidebar = React.useCallback(() => {
+    const nextOpened = !document.documentElement.classList.contains("nav-open");
+    document.documentElement.classList.toggle("nav-open", nextOpened);
+    setsidebarOpened(nextOpened);
+  }, []);
 
-  const closeSidebar = () => {
+  const closeSidebar = React.useCallback(() => {
     document.documentElement.classList.remove("nav-open");
     setsidebarOpened(false);
-  };
+  }, []);
 
   const getBrandText = (path) => {
     const activeRoute = routes.find((route) => {
@@ -109,7 +113,7 @@ function Admin() {
 
   return (
     <BackgroundColorContext.Consumer>
-      {({ color, changeColor }) => (
+      {({ color }) => (
         <React.Fragment>
           <div className="wrapper">
             <Sidebar
@@ -122,7 +126,18 @@ function Admin() {
               }}
               toggleSidebar={toggleSidebar}
             />
-            <div className="main-panel" ref={mainPanelRef} data={color}>
+            {sidebarOpened && (
+              <div
+                className="metis-sidebar-backdrop"
+                onClick={closeSidebar}
+                role="presentation"
+              />
+            )}
+            <div
+              className={`main-panel${hasProjectNav ? " has-project-nav" : ""}`}
+              ref={mainPanelRef}
+              data={color}
+            >
               <AdminNavbar
                 brandText={getBrandText(location.pathname)}
                 isLoggingOut={isLoggingOut}
@@ -131,9 +146,8 @@ function Admin() {
                 sidebarOpened={sidebarOpened}
                 user={user}
               />
-              {/* Show project sub-nav when inside a Metis project */}
-              {/\/metis\/projects\/\d+\//.test(location.pathname) && (
-                <div style={{ padding: '8px 24px 0', borderBottom: '1px solid #21262d' }}>
+              {hasProjectNav && (
+                <div className="metis-project-nav-shell">
                   <ProjectNav />
                 </div>
               )}
@@ -141,7 +155,6 @@ function Admin() {
               <Footer fluid />
             </div>
           </div>
-          <FixedPlugin bgColor={color} handleBgClick={changeColor} />
         </React.Fragment>
       )}
     </BackgroundColorContext.Consumer>

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api\Metis;
 
+use App\Models\MetisAiProvider;
 use App\Models\MetisDomainEntity;
 use App\Models\MetisDomainVerification;
 use App\Models\MetisFindingEntity;
@@ -222,5 +223,33 @@ class MetisWorkflowTest extends TestCase
         $pdfResponse
             ->assertOk()
             ->assertHeader('content-type', 'application/pdf');
+    }
+
+    public function test_ai_provider_can_store_encrypted_api_keys_longer_than_255_characters(): void
+    {
+        $user = User::factory()->create(['role' => User::ROLE_ADMIN]);
+        Sanctum::actingAs($user);
+
+        $apiKey = 'sk-test-'.str_repeat('a', 192);
+
+        $response = $this->postJson('/api/metis/ai-providers', [
+            'name' => 'OpenAI',
+            'provider' => 'openai',
+            'model' => 'gpt-4o',
+            'api_key' => $apiKey,
+            'is_default' => true,
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'OpenAI')
+            ->assertJsonPath('data.provider', 'openai')
+            ->assertJsonPath('data.model', 'gpt-4o');
+
+        /** @var MetisAiProvider $provider */
+        $provider = MetisAiProvider::query()->firstOrFail();
+
+        $this->assertGreaterThan(255, strlen($provider->getRawOriginal('api_key_encrypted')));
+        $this->assertSame($apiKey, $provider->getDecryptedApiKey());
     }
 }

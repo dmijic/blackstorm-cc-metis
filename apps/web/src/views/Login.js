@@ -1,31 +1,14 @@
 import React from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import {
-  Alert,
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  Col,
-  Container,
-  Form,
-  FormGroup,
-  Input,
-  Label,
-  Row,
-} from "reactstrap";
-
-import bgImage from "assets/img/header.jpg";
+import { Alert, Button, Col, Container, Form, FormGroup, Input, Label, Row } from "reactstrap";
 import { useAuth } from "contexts/AuthContext.js";
 
 function Login() {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate  = useNavigate();
+  const location  = useLocation();
   const { token, user, login } = useAuth();
-  const [form, setForm] = React.useState({
-    email: "",
-    password: "",
-  });
+
+  const [form, setForm]               = React.useState({ email: "", password: "" });
   const [errorMessage, setErrorMessage] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
@@ -35,104 +18,111 @@ function Login() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const handleInputChange = (event) => {
-    const { name, value } = event.target;
-
-    setForm((currentForm) => ({
-      ...currentForm,
-      [name]: value,
-    }));
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setForm(cur => ({ ...cur, [name]: value }));
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setIsSubmitting(true);
     setErrorMessage("");
 
     try {
-      await login({
-        email: form.email,
-        password: form.password,
-        deviceName: "vite-web",
-      });
-
+      await login({ email: form.email, password: form.password, deviceName: "vite-web" });
       navigate(redirectPath, { replace: true });
     } catch (error) {
-      const apiErrors = error.data?.errors || {};
-      const firstFieldError = Object.values(apiErrors)[0]?.[0];
-
-      setErrorMessage(firstFieldError || error.message || "Login failed.");
+      const apiErrors    = error.data?.errors || {};
+      const firstFieldErr = Object.values(apiErrors)[0]?.[0];
+      setErrorMessage(firstFieldErr || error.message || "Authentication failed.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div
-      className="vh-100 d-flex align-items-center"
-      style={{
-        backgroundImage: `linear-gradient(135deg, rgba(16, 23, 41, 0.92), rgba(25, 135, 84, 0.7)), url(${bgImage})`,
-        backgroundPosition: "center",
-        backgroundSize: "cover",
-      }}
-    >
+    <div style={{
+      minHeight: '100vh',
+      background: '#0d1117',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}>
       <Container>
         <Row className="justify-content-center">
-          <Col lg="5" md="7">
-            <Card className="card-user shadow-lg border-0 mb-0">
-              <CardHeader>
-                <h1 className="mb-1">Command Center</h1>
-                <p className="text-muted mb-0">
-                  Sign in with your existing backend credentials.
-                </p>
-              </CardHeader>
-              <CardBody>
-                <Form onSubmit={handleSubmit}>
-                  {errorMessage ? (
-                    <Alert color="danger" className="mb-4">
-                      {errorMessage}
-                    </Alert>
-                  ) : null}
-                  <FormGroup>
-                    <Label for="email">Email</Label>
-                    <Input
-                      autoComplete="email"
-                      id="email"
-                      name="email"
-                      onChange={handleInputChange}
-                      placeholder="admin@blackstorm.local"
-                      type="email"
-                      value={form.email}
-                    />
-                  </FormGroup>
-                  <FormGroup>
-                    <Label for="password">Password</Label>
-                    <Input
-                      autoComplete="current-password"
-                      id="password"
-                      name="password"
-                      onChange={handleInputChange}
-                      placeholder="Blackstorm123!"
-                      type="password"
-                      value={form.password}
-                    />
-                  </FormGroup>
-                  <Button
-                    block
-                    className="btn-fill mt-4"
-                    color="success"
-                    disabled={isSubmitting}
-                    type="submit"
-                  >
-                    {isSubmitting ? "Signing in..." : "Sign in"}
-                  </Button>
-                  <p className="text-muted small mt-4 mb-0">
-                    Demo admin: <code>admin@blackstorm.local</code> /{" "}
-                    <code>Blackstorm123!</code>
-                  </p>
-                </Form>
-              </CardBody>
-            </Card>
+          <Col lg="4" md="6">
+            {/* Logo / title */}
+            <div style={{ marginBottom: 28, textAlign: 'center' }}>
+              <div style={{
+                display: 'inline-block',
+                width: 40, height: 40,
+                background: '#4fc3f7',
+                marginBottom: 12,
+              }} />
+              <h2 style={{
+                color: '#e6edf3',
+                fontWeight: 700,
+                fontSize: 20,
+                margin: 0,
+                letterSpacing: 0.5,
+                textTransform: 'uppercase',
+              }}>
+                Command Center
+              </h2>
+              <p style={{ color: '#484f58', fontSize: 12, marginTop: 6 }}>
+                Restricted access — authorised users only
+              </p>
+            </div>
+
+            <div style={{
+              background: '#161b22',
+              border: '1px solid #30363d',
+              padding: 24,
+            }}>
+              <Form onSubmit={handleSubmit}>
+                {errorMessage && (
+                  <Alert color="danger" className="mb-4" style={{ fontSize: 12 }}>
+                    {errorMessage}
+                  </Alert>
+                )}
+
+                <FormGroup style={{ marginBottom: 16 }}>
+                  <Label for="email">Email</Label>
+                  <Input
+                    autoComplete="email"
+                    id="email"
+                    name="email"
+                    onChange={handleInputChange}
+                    placeholder="user@example.local"
+                    type="email"
+                    value={form.email}
+                  />
+                </FormGroup>
+
+                <FormGroup style={{ marginBottom: 20 }}>
+                  <Label for="password">Password</Label>
+                  <Input
+                    autoComplete="current-password"
+                    id="password"
+                    name="password"
+                    onChange={handleInputChange}
+                    placeholder="············"
+                    type="password"
+                    value={form.password}
+                  />
+                </FormGroup>
+
+                <Button
+                  block
+                  color="info"
+                  disabled={isSubmitting}
+                  type="submit"
+                  style={{ fontWeight: 700, letterSpacing: 1, textTransform: 'uppercase' }}
+                >
+                  {isSubmitting ? "Authenticating…" : "Sign In"}
+                </Button>
+              </Form>
+            </div>
           </Col>
         </Row>
       </Container>

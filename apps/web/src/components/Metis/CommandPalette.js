@@ -15,6 +15,7 @@ const STATIC_ACTIONS = [
   { id: 'create-project', label: 'Create Project', icon: 'fas fa-plus-circle', action: 'navigate', target: '/metis/projects?create=1' },
   { id: 'projects', label: 'Go to Projects', icon: 'fas fa-folder-open', action: 'navigate', target: '/metis/projects' },
   { id: 'dashboard', label: 'Go to Dashboard', icon: 'fas fa-tachometer-alt', action: 'navigate', target: '/dashboard' },
+  { id: 'module-settings', label: 'External Services Settings', icon: 'fas fa-link', action: 'navigate', target: '/settings/modules' },
   { id: 'ai-settings', label: 'AI Provider Settings', icon: 'fas fa-robot', action: 'navigate', target: '/settings/ai-providers' },
   { id: 'users', label: 'User Management', icon: 'fas fa-users', action: 'navigate', target: '/settings/users' },
   { id: 'audit-log', label: 'Audit Log', icon: 'fas fa-clipboard-list', action: 'navigate', target: '/settings/audit-log' },
@@ -37,7 +38,7 @@ function buildCurrentProjectActions(projectId, hasScope) {
       icon: 'fas fa-satellite-dish',
       action: 'dispatch',
       projectId,
-      payload: { type: 'wizard_pipeline', params: { steps: ['dns', 'ct', 'subfinder'] } },
+      payload: { type: 'wizard_pipeline', params: { steps: ['dns', 'ct', 'subfinder'], optional_steps: ['wayback'] } },
     }] : []),
     ...(hasScope ? [{
       id: 'project-wizard',
@@ -45,7 +46,7 @@ function buildCurrentProjectActions(projectId, hasScope) {
       icon: 'fas fa-hat-wizard',
       action: 'dispatch',
       projectId,
-      payload: { type: 'wizard_pipeline', params: { steps: ['dns', 'ct', 'subfinder', 'http_probe', 'wayback'] } },
+      payload: { type: 'wizard_pipeline', params: { steps: ['dns', 'ct', 'subfinder', 'github_hints', 'http_probe', 'port_scan', 'directory_enum'], optional_steps: ['wayback'] } },
     }] : []),
   ];
 }

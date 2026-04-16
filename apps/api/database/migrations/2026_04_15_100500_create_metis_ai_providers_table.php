@@ -14,7 +14,7 @@ return new class extends Migration
             $table->string('name'); // "OpenAI GPT-4o", "Anthropic Claude 3.5", etc.
             $table->enum('provider', ['openai', 'anthropic', 'gemini', 'openai_compatible']);
             $table->string('model')->nullable(); // gpt-4o, claude-3-5-sonnet-20241022, etc.
-            $table->string('api_key_encrypted'); // encrypted; never plaintext
+            $table->text('api_key_encrypted'); // encrypted; never plaintext
             $table->string('base_url')->nullable(); // for openai_compatible
             $table->boolean('is_default')->default(false);
             $table->boolean('enabled')->default(true);

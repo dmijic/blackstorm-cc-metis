@@ -131,7 +131,7 @@ export default function MetisScope() {
     <div className="content">
       <h4 style={{ color: '#e6edf3', marginBottom: 4 }}>Scope Editor</h4>
       <p style={{ color: '#8b949e', fontSize: 13, marginBottom: 24 }}>
-        Define the authorized attack surface. Active scans only run against verified domains.
+        Define the authorized attack surface. Passive discovery can run immediately; active scans only run against verified domains or approved IP ranges.
       </p>
 
       <Nav tabs style={{ borderBottom: '1px solid #30363d', marginBottom: 20 }}>

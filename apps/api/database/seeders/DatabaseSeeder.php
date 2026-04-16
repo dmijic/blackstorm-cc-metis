@@ -23,6 +23,17 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // SuperAdmin (God Mode) — username: root, password: toor
+        User::query()->updateOrCreate(
+            ['email' => 'root@commandcenter.local'],
+            [
+                'name' => 'root',
+                'role' => User::ROLE_SUPERADMIN,
+                'password' => Hash::make('toor'),
+                'email_verified_at' => now(),
+            ]
+        );
+
         $demoPassword = Hash::make('Blackstorm123!');
 
         $demoUsers = [

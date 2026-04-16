@@ -11,12 +11,14 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
+    public const ROLE_SUPERADMIN = 'SuperAdmin';
     public const ROLE_ADMIN = 'Admin';
     public const ROLE_OPERATOR = 'Operator';
     public const ROLE_ANALYST = 'Analyst';
     public const ROLE_VIEWER = 'Viewer';
 
     public const ROLES = [
+        self::ROLE_SUPERADMIN,
         self::ROLE_ADMIN,
         self::ROLE_OPERATOR,
         self::ROLE_ANALYST,
@@ -68,6 +70,11 @@ class User extends Authenticatable
 
     public function isAdmin(): bool
     {
-        return $this->role === self::ROLE_ADMIN;
+        return in_array($this->role, [self::ROLE_ADMIN, self::ROLE_SUPERADMIN], true);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_SUPERADMIN;
     }
 }

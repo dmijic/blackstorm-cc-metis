@@ -29,12 +29,14 @@ class ReconService
 
         $types = [DNS_A, DNS_AAAA, DNS_CNAME, DNS_MX, DNS_NS, DNS_TXT];
         $records = [];
+        $resolvedHosts = [];
 
         foreach ($types as $type) {
             try {
                 $resolved = dns_get_record($domain, $type);
                 if ($resolved) {
                     $records = array_merge($records, $resolved);
+                    $resolvedHosts = $this->collectResolvedHosts($resolvedHosts, $resolved, $domain);
                 }
             } catch (\Throwable $e) {
                 Log::warning("DNS lookup failed for {$domain}: " . $e->getMessage());
@@ -67,17 +69,39 @@ class ReconService
             ]);
         }
 
+        foreach ($resolvedHosts as $hostname => $meta) {
+            $this->upsertHostEntity($projectId, $hostname, [
+                'ip' => $meta['primary_ip'] ?? null,
+                'http_json' => [
+                    'dns_resolution' => [
+                        'resolved_ips' => $meta['ips'],
+                        'aliases' => $meta['aliases'],
+                        'resolved_at' => now()->toIso8601String(),
+                    ],
+                ],
+                'is_live' => false,
+            ]);
+        }
+
         $payload = [
             'domain' => $domain,
             'dns_records' => $records,
             'rdap' => $rdap,
             'discovered_subdomains' => array_values(array_unique($discovered)),
+            'resolved_hosts' => array_values(array_map(function (string $hostname, array $meta) {
+                return [
+                    'hostname' => $hostname,
+                    'ips' => $meta['ips'],
+                    'aliases' => $meta['aliases'],
+                ];
+            }, array_keys($resolvedHosts), array_values($resolvedHosts))),
         ];
 
         $run->storeOutput($payload);
         $run->markCompleted([
             'dns_records' => count($records),
             'discovered_hosts' => count($payload['discovered_subdomains']),
+            'resolved_hosts' => count($resolvedHosts),
             'rdap' => empty($rdap) ? 'missing' : 'ok',
         ]);
 
@@ -278,29 +302,57 @@ class ReconService
 
         $run->markStarted();
 
-        $response = Http::timeout(30)->get('https://web.archive.org/cdx/search/cdx', [
-            'url' => "*.$domain/*",
-            'output' => 'json',
-            'fl' => 'original,statuscode,timestamp',
-            'collapse' => 'urlkey',
-            'limit' => 2000,
-        ]);
+        try {
+            $response = Http::timeout(12)
+                ->retry(1, 250)
+                ->acceptJson()
+                ->get('https://web.archive.org/cdx/search/cdx', [
+                    'url' => "*.$domain/*",
+                    'output' => 'json',
+                    'fl' => 'original,statuscode,timestamp',
+                    'collapse' => 'urlkey',
+                    'limit' => 750,
+                ]);
+        } catch (\Throwable $e) {
+            $run->markFailed('Wayback request failed: '.$e->getMessage());
+
+            return [
+                'total' => 0,
+                'new' => 0,
+                'error' => 'wayback_request_failed',
+            ];
+        }
 
         if (! $response->successful()) {
             $run->markFailed('Wayback CDX returned: ' . $response->status());
 
-            return [];
+            return [
+                'total' => 0,
+                'new' => 0,
+                'error' => 'wayback_http_'.$response->status(),
+            ];
         }
 
         $rows = $response->json() ?? [];
-        array_shift($rows);
+        if (is_array($rows) && isset($rows[0]) && $rows[0] === ['original', 'statuscode', 'timestamp']) {
+            array_shift($rows);
+        }
 
         $added = 0;
 
         foreach ($rows as $row) {
+            if (! is_array($row) || count($row) < 3) {
+                continue;
+            }
+
             [$url, $status, $timestamp] = $row;
 
-            $firstSeen = Carbon::createFromFormat('YmdHis', $timestamp)->toDateTimeString();
+            try {
+                $firstSeen = Carbon::createFromFormat('YmdHis', $timestamp)->toDateTimeString();
+            } catch (\Throwable) {
+                continue;
+            }
+
             $created = $this->upsertUrlEntity($projectId, $url, [
                 'source' => 'wayback',
                 'status_code' => $status,
@@ -515,5 +567,39 @@ class ReconService
         $normalized = rtrim($normalized, '.');
 
         return $normalized !== '' ? $normalized : null;
+    }
+
+    private function collectResolvedHosts(array $resolvedHosts, array $records, string $fallbackHost): array
+    {
+        foreach ($records as $record) {
+            $hostname = $this->normalizeDomain($record['host'] ?? $fallbackHost);
+
+            if (! $hostname) {
+                continue;
+            }
+
+            $resolvedHosts[$hostname] ??= [
+                'ips' => [],
+                'aliases' => [],
+                'primary_ip' => null,
+            ];
+
+            $ip = $record['ip'] ?? $record['ipv6'] ?? null;
+
+            if (is_string($ip) && filter_var($ip, FILTER_VALIDATE_IP)) {
+                $resolvedHosts[$hostname]['ips'][] = $ip;
+                $resolvedHosts[$hostname]['ips'] = array_values(array_unique($resolvedHosts[$hostname]['ips']));
+                $resolvedHosts[$hostname]['primary_ip'] ??= $ip;
+            }
+
+            $alias = $this->normalizeDomain($record['target'] ?? null);
+
+            if ($alias && $alias !== $hostname) {
+                $resolvedHosts[$hostname]['aliases'][] = $alias;
+                $resolvedHosts[$hostname]['aliases'] = array_values(array_unique($resolvedHosts[$hostname]['aliases']));
+            }
+        }
+
+        return $resolvedHosts;
     }
 }
