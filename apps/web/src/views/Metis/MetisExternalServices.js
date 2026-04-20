@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from 'contexts/AuthContext';
-import { getModules, updateModule } from 'api/metisApi';
+import { getExternalServices, getExternalServicesDocs, testExternalService, updateExternalService } from 'api/metisApi';
 import { Alert, Button, Col, Input, Row, Spinner } from 'reactstrap';
 
-function ServiceCard({ module, onSave, saving, canEdit }) {
+function ServiceCard({ module, onSave, onTest, saving, testing, canEdit }) {
   const [enabled, setEnabled] = useState(Boolean(module.enabled));
   const [notes, setNotes] = useState(module.notes || '');
   const [config, setConfig] = useState(module.config || {});
@@ -110,9 +110,14 @@ function ServiceCard({ module, onSave, saving, canEdit }) {
       </div>
       {canEdit && !module.locked && (
         <div style={{ padding: '10px 16px', borderTop: '1px solid #21262d' }}>
-          <Button color="info" size="sm" disabled={saving} onClick={() => onSave(module.slug, { enabled, notes, config })}>
-            {saving ? <Spinner size="sm" /> : 'Save'}
-          </Button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Button color="info" size="sm" disabled={saving} onClick={() => onSave(module.slug, { enabled, notes, config })}>
+              {saving ? <Spinner size="sm" /> : 'Save'}
+            </Button>
+            <Button color="secondary" outline size="sm" disabled={testing || !module.configured} onClick={() => onTest(module.slug)}>
+              {testing ? <Spinner size="sm" /> : 'Test'}
+            </Button>
+          </div>
         </div>
       )}
     </div>
@@ -123,8 +128,10 @@ export default function MetisExternalServices() {
   const { token, user } = useAuth();
   const canEdit = user?.role === 'Admin' || user?.role === 'SuperAdmin';
   const [modules, setModules] = useState([]);
+  const [docs, setDocs] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState({});
+  const [testing, setTesting] = useState({});
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [filter, setFilter] = useState('all');
@@ -132,8 +139,12 @@ export default function MetisExternalServices() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getModules(token);
-      setModules(res?.data || res || []);
+      const [servicesRes, docsRes] = await Promise.all([
+        getExternalServices(token),
+        getExternalServicesDocs(token).catch(() => null),
+      ]);
+      setModules(servicesRes?.data || servicesRes || []);
+      setDocs(docsRes?.data || null);
     } catch (e) { setError('Failed to load: ' + e.message); }
     setLoading(false);
   }, [token]);
@@ -143,9 +154,22 @@ export default function MetisExternalServices() {
   const handleSave = async (slug, data) => {
     setSaving(s => ({ ...s, [slug]: true }));
     setError(''); setSuccess('');
-    try { await updateModule(slug, data, token); setSuccess(`${slug} updated.`); load(); }
+    try { await updateExternalService(slug, data, token); setSuccess(`${slug} updated.`); load(); }
     catch (e) { setError('Save failed: ' + e.message); }
     setSaving(s => ({ ...s, [slug]: false }));
+  };
+
+  const handleTest = async (slug) => {
+    setTesting((current) => ({ ...current, [slug]: true }));
+    setError('');
+    setSuccess('');
+    try {
+      const response = await testExternalService(slug, token);
+      setSuccess(response?.data?.message || `${slug} test completed.`);
+    } catch (e) {
+      setError('Test failed: ' + e.message);
+    }
+    setTesting((current) => ({ ...current, [slug]: false }));
   };
 
   const filtered = useMemo(() => {
@@ -186,6 +210,30 @@ export default function MetisExternalServices() {
       <Alert color="secondary" className="mb-3" style={{ fontSize: 12 }}>
         <strong>Quick setup flow:</strong> 1. define project scope, 2. add provider credentials or webhook URLs here, 3. save and enable the connector, 4. run the matching project module or wizard step. Research placeholders stay visible for documentation, but they remain non-executable in this build.
       </Alert>
+      {docs && (
+        <Row className="mb-4">
+          <Col md="4" className="mb-3">
+            <div style={{ background: '#161b22', border: '1px solid #30363d', padding: 16 }}>
+              <div style={{ fontSize: 10, color: '#8b949e', textTransform: 'uppercase', letterSpacing: 0.5 }}>Configured Services</div>
+              <div style={{ fontSize: 28, color: '#e6edf3', fontWeight: 700, marginTop: 6 }}>{docs.summary?.configured || 0}</div>
+            </div>
+          </Col>
+          <Col md="4" className="mb-3">
+            <div style={{ background: '#161b22', border: '1px solid #30363d', padding: 16 }}>
+              <div style={{ fontSize: 10, color: '#8b949e', textTransform: 'uppercase', letterSpacing: 0.5 }}>Enabled Services</div>
+              <div style={{ fontSize: 28, color: '#e6edf3', fontWeight: 700, marginTop: 6 }}>{docs.summary?.enabled || 0}</div>
+            </div>
+          </Col>
+          <Col md="4" className="mb-3">
+            <div style={{ background: '#161b22', border: '1px solid #30363d', padding: 16 }}>
+              <div style={{ fontSize: 10, color: '#8b949e', textTransform: 'uppercase', letterSpacing: 0.5 }}>AI Provider Types</div>
+              <div style={{ fontSize: 13, color: '#c9d1d9', marginTop: 8, lineHeight: 1.6 }}>
+                {(docs.ai_provider_types || []).join(', ')}
+              </div>
+            </div>
+          </Col>
+        </Row>
+      )}
       {error && <Alert color="danger" className="mb-3" style={{ fontSize: 12 }}>{error}</Alert>}
       {success && <Alert color="success" className="mb-3" style={{ fontSize: 12 }}>{success}</Alert>}
       {loading ? (
@@ -201,7 +249,7 @@ export default function MetisExternalServices() {
             <Row>
               {items.map(m => (
                 <Col key={m.slug} lg="4" md="6" className="mb-4">
-                  <ServiceCard module={m} onSave={handleSave} saving={!!saving[m.slug]} canEdit={canEdit} />
+                  <ServiceCard module={m} onSave={handleSave} onTest={handleTest} saving={!!saving[m.slug]} testing={!!testing[m.slug]} canEdit={canEdit} />
                 </Col>
               ))}
             </Row>

@@ -29,8 +29,13 @@ function buildCurrentProjectActions(projectId, hasScope) {
 
   return [
     { id: 'project-overview', label: 'Open Project Overview', icon: 'fas fa-border-all', action: 'navigate', target: `/metis/projects/${projectId}/overview` },
+    { id: 'project-workflows', label: 'Open Workflows', icon: 'fas fa-project-diagram', action: 'navigate', target: `/metis/projects/${projectId}/workflows` },
+    { id: 'project-scripts', label: 'Run Custom Script', icon: 'fas fa-terminal', action: 'navigate', target: `/metis/projects/${projectId}/scripts` },
     { id: 'project-runs', label: 'Open Runs', icon: 'fas fa-play-circle', action: 'navigate', target: `/metis/projects/${projectId}/runs` },
-    { id: 'project-report', label: 'Generate Report', icon: 'fas fa-file-alt', action: 'navigate', target: `/metis/projects/${projectId}/report` },
+    { id: 'project-modules', label: 'Open Modules', icon: 'fas fa-cubes', action: 'navigate', target: `/metis/projects/${projectId}/modules` },
+    { id: 'project-report', label: 'Generate Technical Report', icon: 'fas fa-file-alt', action: 'navigate', target: `/metis/projects/${projectId}/report?template=metis-technical-recon` },
+    { id: 'project-report-nist', label: 'Generate NIST Report', icon: 'fas fa-file-contract', action: 'navigate', target: `/metis/projects/${projectId}/report?template=nist-technical` },
+    { id: 'project-executive', label: 'Generate Executive Brief', icon: 'fas fa-user-tie', action: 'navigate', target: `/metis/projects/${projectId}/report?template=metis-executive-brief&ai=1` },
     { id: 'project-ai-brief', label: 'Ask AI Summary', icon: 'fas fa-robot', action: 'navigate', target: `/metis/projects/${projectId}/report?ai=1` },
     ...(hasScope ? [{
       id: 'project-passive',
@@ -42,11 +47,10 @@ function buildCurrentProjectActions(projectId, hasScope) {
     }] : []),
     ...(hasScope ? [{
       id: 'project-wizard',
-      label: 'Run Full Wizard',
+      label: 'Start Smart Wizard',
       icon: 'fas fa-hat-wizard',
-      action: 'dispatch',
-      projectId,
-      payload: { type: 'wizard_pipeline', params: { steps: ['dns', 'ct', 'subfinder', 'github_hints', 'http_probe', 'port_scan', 'directory_enum'], optional_steps: ['wayback'] } },
+      action: 'navigate',
+      target: `/metis/projects/${projectId}/wizard`,
     }] : []),
   ];
 }

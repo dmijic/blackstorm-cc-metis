@@ -38,7 +38,7 @@ export function AuthProvider({ children }) {
   };
 
   const login = async ({ email, password, deviceName }) => {
-    const payload = await apiRequest("/api/auth/login", {
+    const payload = await apiRequest("/auth/login", {
       method: "POST",
       body: JSON.stringify({
         email,
@@ -54,7 +54,7 @@ export function AuthProvider({ children }) {
 
   const logout = async () => {
     try {
-      await apiRequest("/api/auth/logout", {
+      await apiRequest("/auth/logout", {
         method: "POST",
       });
     } catch {

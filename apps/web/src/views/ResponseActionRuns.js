@@ -16,6 +16,7 @@ import {
   Table,
 } from "reactstrap";
 
+import GuidedHelpTour from "components/GuidedHelpTour";
 import { apiRequest } from "lib/api.js";
 
 const statusColors = {
@@ -42,6 +43,36 @@ function ResponseActionRuns() {
     finding: "",
   });
 
+  const helpSteps = React.useMemo(
+    () => [
+      {
+        selector: ".action-runs-help-header",
+        title: "Pregled action runova",
+        body: "Ovdje vidiš sve isporuke koje su playbookovi pokušali poslati: webhook, Teams, Slack, Jira ili e-mail akcije.",
+        hint: "Kreni od statusa i vremena kreiranja da brzo vidiš što je zapelo.",
+      },
+      {
+        selector: ".action-runs-help-filters",
+        title: "Filtriranje liste",
+        body: "Filtriraj po statusu ili konkretnom finding ID-u ako želiš brzo izolirati samo problematične isporuke.",
+        hint: "Najkorisniji prvi filter je `failed` jer odmah pokaže što treba ponoviti ili ispraviti.",
+      },
+      {
+        selector: ".action-runs-help-table",
+        title: "Tablica rezultata",
+        body: "Svaki red prikazuje playbook, finding, tip akcije, vrijeme slanja i eventualnu grešku iz prethodnog pokušaja.",
+        hint: "Ako je akcija pala, usporedi `Action`, `Status` i `Error` stupce prije ponovnog slanja.",
+      },
+      {
+        selector: ".action-runs-help-retry",
+        title: "Retry sigurno",
+        body: "Retry šalje istu akciju još jednom, ali samo za postojeći run. Ne mijenja playbook i ne pokreće ništa izvan spremljenog payload-a.",
+        hint: "Koristi retry tek nakon što provjeriš da su vanjski webhook ili konektor stvarno ispravljeni.",
+      },
+    ],
+    []
+  );
+
   const loadRuns = async (nextFilters = filters) => {
     setIsLoading(true);
     setErrorMessage("");
@@ -59,7 +90,7 @@ function ResponseActionRuns() {
 
       const query = params.toString();
       const payload = await apiRequest(
-        `/api/response/action-runs${query ? `?${query}` : ""}`
+        `/response/action-runs${query ? `?${query}` : ""}`
       );
 
       setRuns(payload.data || []);
@@ -92,7 +123,7 @@ function ResponseActionRuns() {
     setErrorMessage("");
 
     try {
-      await apiRequest(`/api/response/action-runs/${runId}/retry`, {
+      await apiRequest(`/response/action-runs/${runId}/retry`, {
         method: "POST",
       });
       await loadRuns();
@@ -108,12 +139,22 @@ function ResponseActionRuns() {
       <Row>
         <Col lg="12">
           <Card>
-            <CardHeader>
-              <CardTitle tag="h2">Action Runs</CardTitle>
-              <p className="card-category mb-4">
-                Delivery history for webhook and email playbook actions
-              </p>
-              <Row>
+            <CardHeader className="action-runs-help-header">
+              <div className="d-flex justify-content-between align-items-start flex-wrap" style={{ gap: 12 }}>
+                <div>
+                  <CardTitle tag="h2">Action Runs</CardTitle>
+                  <p className="card-category mb-4">
+                    Delivery history for webhook and email playbook actions
+                  </p>
+                </div>
+                <GuidedHelpTour
+                  title="Action Runs Help"
+                  buttonLabel="Help"
+                  autoOpenOnce={false}
+                  steps={helpSteps}
+                />
+              </div>
+              <Row className="action-runs-help-filters">
                 <Col md="3">
                   <FormGroup>
                     <Label for="filter-status">Status</Label>
@@ -158,7 +199,7 @@ function ResponseActionRuns() {
                 </div>
               ) : (
                 <Table className="tablesorter" responsive>
-                  <thead className="text-primary">
+                  <thead className="text-primary action-runs-help-table">
                     <tr>
                       <th>Created</th>
                       <th>Playbook</th>
@@ -188,7 +229,7 @@ function ResponseActionRuns() {
                         <td className="text-danger">{run.error || "—"}</td>
                         <td className="text-right">
                           <Button
-                            className="btn-link"
+                            className="btn-link action-runs-help-retry"
                             color="info"
                             disabled={
                               retryingRunId === run.id || run.status === "sent"

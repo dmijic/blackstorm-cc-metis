@@ -94,12 +94,29 @@ function Sidebar(props) {
   return (
     <BackgroundColorContext.Consumer>
       {({ color }) => (
-        <div className="sidebar" data={color}>
+        <div
+          className={`sidebar${props.collapsed ? " collapsed" : ""}`}
+          data={color}
+        >
           <div className="sidebar-wrapper" ref={sidebarRef}>
             {logoImg !== null || logoText !== null ? (
               <div className="logo">
-                {logoImg}
-                {logoText}
+                <div className="metis-sidebar-brand">
+                  {logoImg}
+                  {logoText}
+                </div>
+                <button
+                  type="button"
+                  className="metis-sidebar-rail-toggle d-none d-lg-inline-flex"
+                  onClick={props.toggleSidebarCollapse}
+                  title={props.collapsed ? "Expand sidebar" : "Collapse sidebar"}
+                >
+                  <i
+                    className={`fas ${
+                      props.collapsed ? "fa-angles-right" : "fa-angles-left"
+                    }`}
+                  />
+                </button>
               </div>
             ) : null}
             <Nav>
@@ -125,7 +142,12 @@ function Sidebar(props) {
                   lastGroup = prop.group;
                   rendered.push(
                     <li className={activeRoute(prop.path)} key={key}>
-                      <NavLink to={prop.path} className="nav-link" onClick={linkOnClick}>
+                      <NavLink
+                        to={prop.path}
+                        className="nav-link"
+                        onClick={linkOnClick}
+                        title={rtlActive ? prop.rtlName : prop.name}
+                      >
                         <i className={prop.icon} />
                         <p>{rtlActive ? prop.rtlName : prop.name}</p>
                       </NavLink>
@@ -148,7 +170,7 @@ function Sidebar(props) {
                 >
                   <i className="fas fa-search" style={{ fontSize: 10 }} />
                   <span>Search &amp; Commands</span>
-                  <span style={{ marginLeft: 'auto', fontSize: 10, border: '1px solid #30363d', padding: '1px 5px', borderRadius: 3 }}>⌘K</span>
+                  <span className="metis-sidebar-shortcut-key" style={{ marginLeft: 'auto', fontSize: 10, border: '1px solid #30363d', padding: '1px 5px', borderRadius: 3 }}>⌘K</span>
                 </div>
               </li>
             </Nav>
@@ -165,6 +187,7 @@ Sidebar.propTypes = {
   rtlActive: PropTypes.bool,
   routes: PropTypes.arrayOf(PropTypes.object),
   closeSidebar: PropTypes.func,
+  collapsed: PropTypes.bool,
   logo: PropTypes.shape({
     // innerLink is for links that will direct the user within the app
     // it will be rendered as <Link to="...">...</Link> tag
@@ -177,6 +200,7 @@ Sidebar.propTypes = {
     // the image src of the logo
     imgSrc: PropTypes.string,
   }),
+  toggleSidebarCollapse: PropTypes.func,
 };
 
 export default Sidebar;

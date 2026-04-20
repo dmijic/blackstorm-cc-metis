@@ -84,6 +84,83 @@ class ModuleCatalogService
                     ['key' => 'api_key', 'label' => 'API Key', 'type' => 'secret', 'placeholder' => '...'],
                 ],
             ],
+            'search_provider' => [
+                'slug' => 'search_provider',
+                'name' => 'Search Provider / Programmable Search',
+                'category' => 'osint',
+                'description' => 'Generates safe search recon queries and can optionally execute a limited programmable search integration.',
+                'guardrail' => 'Safe search only. No scraping of closed platforms, no people tracking, no private content access.',
+                'docs_url' => 'https://developers.google.com/custom-search/v1/overview',
+                'instructions' => [
+                    'Create a programmable search engine scoped to the open web or approved domains.',
+                    'If no provider is configured, Metis still generates query templates and supports manual result import.',
+                ],
+                'fields' => [
+                    ['key' => 'provider', 'label' => 'Provider', 'type' => 'text', 'placeholder' => 'google_cse'],
+                    ['key' => 'api_key', 'label' => 'API Key', 'type' => 'secret', 'placeholder' => 'AIza...'],
+                    ['key' => 'engine_id', 'label' => 'Engine ID', 'type' => 'text', 'placeholder' => 'cx...'],
+                ],
+            ],
+            'virustotal' => [
+                'slug' => 'virustotal',
+                'name' => 'VirusTotal Connector',
+                'category' => 'cti',
+                'description' => 'Optional passive enrichment for URLs, domains, and files already associated with approved projects.',
+                'guardrail' => 'Passive lookups only. No malware distribution or detonation workflows.',
+                'docs_url' => 'https://docs.virustotal.com/reference/overview',
+                'instructions' => [
+                    'Create a read-only VirusTotal API key.',
+                    'Use it only for assets already tied to your authorized project scope.',
+                ],
+                'fields' => [
+                    ['key' => 'api_key', 'label' => 'API Key', 'type' => 'secret', 'placeholder' => '...'],
+                ],
+            ],
+            'urlscan' => [
+                'slug' => 'urlscan',
+                'name' => 'urlscan Connector',
+                'category' => 'cti',
+                'description' => 'Optional passive enrichment for previously observed URLs and infrastructure hints.',
+                'guardrail' => 'Use only for approved assets and passive review. Do not submit third-party targets outside scope.',
+                'docs_url' => 'https://urlscan.io/docs/api/',
+                'instructions' => [
+                    'Create a urlscan API key for a research account.',
+                    'Keep usage restricted to approved URLs and passive review use cases.',
+                ],
+                'fields' => [
+                    ['key' => 'api_key', 'label' => 'API Key', 'type' => 'secret', 'placeholder' => '...'],
+                ],
+            ],
+            'securitytrails' => [
+                'slug' => 'securitytrails',
+                'name' => 'SecurityTrails Connector',
+                'category' => 'osint',
+                'description' => 'Optional passive DNS and historical enrichment for owned domains and infrastructure.',
+                'guardrail' => 'Passive enrichment only for approved domains and related infrastructure.',
+                'docs_url' => 'https://docs.securitytrails.com/docs',
+                'instructions' => [
+                    'Create a SecurityTrails API key.',
+                    'Use it to supplement DNS enrichment and historical infrastructure analysis.',
+                ],
+                'fields' => [
+                    ['key' => 'api_key', 'label' => 'API Key', 'type' => 'secret', 'placeholder' => '...'],
+                ],
+            ],
+            'whoisxml' => [
+                'slug' => 'whoisxml',
+                'name' => 'WhoisXML API Connector',
+                'category' => 'osint',
+                'description' => 'Optional RDAP/WHOIS enrichment for domain ownership context and historical registration signals.',
+                'guardrail' => 'Public ownership context only. Do not store unnecessary personal data.',
+                'docs_url' => 'https://whoisxmlapi.com/documentation',
+                'instructions' => [
+                    'Create a WhoisXML API token.',
+                    'Use only for ownership context and authorized domain inventory enrichment.',
+                ],
+                'fields' => [
+                    ['key' => 'api_key', 'label' => 'API Key', 'type' => 'secret', 'placeholder' => '...'],
+                ],
+            ],
             'slack' => [
                 'slug' => 'slack',
                 'name' => 'Slack Alerts',

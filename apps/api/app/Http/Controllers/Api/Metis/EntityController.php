@@ -38,10 +38,20 @@ class EntityController extends Controller
                 'last_updated' => $domainQ->clone()->where('layer', 'discovery')->max('updated_at'),
                 'items'        => $domainQ->clone()->where('layer', 'discovery')->orderBy('domain')->limit(500)->get(),
             ],
+            'dns' => [
+                'count'        => $project->domainEntities()->whereNotNull('dns_json')->count(),
+                'last_updated' => $project->domainEntities()->whereNotNull('dns_json')->max('updated_at'),
+                'items'        => $project->domainEntities()->whereNotNull('dns_json')->orderBy('domain')->limit(500)->get(),
+            ],
             'live' => [
                 'count'        => $hostQ->clone()->where('is_live', true)->count(),
                 'last_updated' => $hostQ->clone()->where('is_live', true)->max('updated_at'),
                 'items'        => $hostQ->clone()->where('is_live', true)->orderBy('hostname')->limit(500)->get(),
+            ],
+            'infra_groups' => [
+                'count'        => $project->infraGroups()->count(),
+                'last_updated' => $project->infraGroups()->max('updated_at'),
+                'items'        => $project->infraGroups()->with('assets')->orderBy('type')->limit(200)->get(),
             ],
             'history' => [
                 'count'        => $project->urlEntities()->count(),
@@ -57,6 +67,11 @@ class EntityController extends Controller
                 'count'        => $project->notes()->count(),
                 'last_updated' => $project->notes()->max('updated_at'),
                 'items'        => $project->notes()->with('creator:id,name')->orderByDesc('created_at')->limit(100)->get(),
+            ],
+            'intel_hits' => [
+                'count'        => $project->intelHits()->count(),
+                'last_updated' => $project->intelHits()->max('updated_at'),
+                'items'        => $project->intelHits()->orderByDesc('discovered_at')->limit(200)->get(),
             ],
         ]);
     }
@@ -88,9 +103,21 @@ class EntityController extends Controller
             ->with('creator:id,name')
             ->get();
 
+        $domainIps = $domain->related_ips_json ?? [];
+        $ipMap = $project->hostEntities()
+            ->get()
+            ->filter(function (MetisHostEntity $host) use ($domainIps) {
+                $ips = $host->ip_addresses_json ?? array_values(array_filter([$host->ip]));
+
+                return $domainIps !== [] && array_intersect($domainIps, $ips) !== [];
+            })
+            ->take(50)
+            ->values();
+
         return response()->json([
             'data'    => $domain,
             'related' => $related,
+            'ip_map'  => $ipMap,
             'notes'   => $notes,
         ]);
     }
@@ -121,10 +148,26 @@ class EntityController extends Controller
             ->where('affected_entity_id', $host->id)
             ->get();
 
+        $hostIps = $host->ip_addresses_json ?? array_values(array_filter([$host->ip]));
+        $hostFingerprint = $host->tls_json['fingerprint_sha1'] ?? null;
+        $relatedHosts = $project->hostEntities()
+            ->get()
+            ->where('id', '!=', $host->id)
+            ->filter(function (MetisHostEntity $candidate) use ($hostIps, $hostFingerprint) {
+                $candidateIps = $candidate->ip_addresses_json ?? array_values(array_filter([$candidate->ip]));
+                $sharesIp = array_intersect($hostIps, $candidateIps) !== [];
+                $sharesCert = $hostFingerprint && (($candidate->tls_json['fingerprint_sha1'] ?? null) === $hostFingerprint);
+
+                return $sharesIp || $sharesCert;
+            })
+            ->take(50)
+            ->values();
+
         return response()->json([
             'data'     => $host,
             'notes'    => $notes,
             'findings' => $findings,
+            'related'  => $relatedHosts,
         ]);
     }
 

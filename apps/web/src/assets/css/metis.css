@@ -15,6 +15,9 @@
   --metis-accent-green: #3fb950;
   --metis-accent-red:   #f85149;
   --metis-accent-yellow:#f0c040;
+  --metis-sidebar-width: 272px;
+  --metis-sidebar-collapsed-width: 88px;
+  --metis-header-height: 64px;
 }
 
 /* ── Global resets — no rounded corners anywhere ──────────────────────────── */
@@ -441,6 +444,20 @@ table {
   color: var(--metis-accent-green) !important;
 }
 
+.alert-secondary {
+  background: rgba(139, 148, 158, 0.09) !important;
+  border-color: #5f6a75 !important;
+  color: #d8dee4 !important;
+}
+
+.alert-secondary a,
+.alert-info a,
+.alert-warning a,
+.alert-success a,
+.alert-danger a {
+  color: var(--metis-accent) !important;
+}
+
 /* ── Nav tabs ─────────────────────────────────────────────────────────────── */
 .nav-tabs {
   border-bottom: 1px solid var(--metis-border) !important;
@@ -696,5 +713,211 @@ pre {
 
   .metis-dashboard-grid {
     grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── Shell v2 overrides ──────────────────────────────────────────────────── */
+.wrapper.metis-admin-shell {
+  min-height: 100vh;
+  background: var(--metis-bg-base) !important;
+}
+
+.metis-admin-shell .sidebar {
+  position: fixed !important;
+  inset: 0 auto 0 0 !important;
+  width: var(--metis-sidebar-width) !important;
+  margin: 0 !important;
+  transform: none !important;
+  transition: width 0.2s ease, transform 0.2s ease !important;
+  z-index: 1035 !important;
+}
+
+.metis-admin-shell .sidebar::before,
+.metis-admin-shell .sidebar::after {
+  display: none !important;
+}
+
+.metis-admin-shell .sidebar .sidebar-wrapper {
+  padding-bottom: 20px !important;
+}
+
+.metis-admin-shell .sidebar .logo {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  min-height: var(--metis-header-height) !important;
+}
+
+.metis-sidebar-brand {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.metis-admin-shell .sidebar .logo .logo-mini {
+  margin: 0 !important;
+  flex: 0 0 auto;
+}
+
+.metis-admin-shell .sidebar .logo .logo-normal {
+  margin: 0 !important;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metis-sidebar-rail-toggle,
+.metis-sidebar-collapse-btn {
+  align-items: center !important;
+  justify-content: center !important;
+  width: 34px !important;
+  height: 34px !important;
+  padding: 0 !important;
+  flex: 0 0 auto !important;
+}
+
+.metis-admin-shell .sidebar .nav {
+  padding-top: 8px !important;
+}
+
+.metis-admin-shell .sidebar .nav li a {
+  min-height: 40px;
+}
+
+.metis-admin-shell .sidebar .nav li a p {
+  margin: 0 !important;
+  min-width: 0;
+}
+
+.metis-admin-shell .main-panel {
+  width: calc(100% - var(--metis-sidebar-width)) !important;
+  margin-left: var(--metis-sidebar-width) !important;
+  min-height: 100vh !important;
+  transition: margin-left 0.2s ease, width 0.2s ease !important;
+}
+
+.metis-admin-shell .main-panel > .content {
+  padding: 24px !important;
+  min-height: calc(100vh - var(--metis-header-height)) !important;
+}
+
+.metis-admin-shell .main-panel.has-project-nav > .content {
+  padding-top: 24px !important;
+}
+
+.metis-admin-shell footer.footer {
+  padding: 8px 24px !important;
+}
+
+.metis-sticky-navbar {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1030 !important;
+  min-height: var(--metis-header-height) !important;
+  padding: 10px 24px !important;
+}
+
+.metis-sticky-navbar .container-fluid {
+  padding: 0 !important;
+}
+
+.metis-sticky-navbar .navbar-wrapper {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  min-width: 0 !important;
+}
+
+.metis-project-nav-shell {
+  position: sticky;
+  top: var(--metis-header-height);
+  z-index: 1025;
+}
+
+.metis-admin-shell .metis-project-nav-shell {
+  padding: 12px 24px !important;
+  background: #0d1117 !important;
+}
+
+.metis-admin-shell.sidebar-collapsed .sidebar {
+  width: var(--metis-sidebar-collapsed-width) !important;
+}
+
+.metis-admin-shell.sidebar-collapsed .main-panel {
+  width: calc(100% - var(--metis-sidebar-collapsed-width)) !important;
+  margin-left: var(--metis-sidebar-collapsed-width) !important;
+}
+
+.metis-admin-shell.sidebar-collapsed .sidebar .logo {
+  padding-inline: 12px !important;
+}
+
+.metis-admin-shell.sidebar-collapsed .sidebar .logo .logo-normal,
+.metis-admin-shell.sidebar-collapsed .sidebar .nav li a p,
+.metis-admin-shell.sidebar-collapsed .sidebar .nav-group-label,
+.metis-admin-shell.sidebar-collapsed .metis-sidebar-shortcut span:not(.metis-sidebar-shortcut-key) {
+  display: none !important;
+}
+
+.metis-admin-shell.sidebar-collapsed .metis-sidebar-brand {
+  justify-content: center;
+  width: 100%;
+}
+
+.metis-admin-shell.sidebar-collapsed .sidebar .nav li a {
+  justify-content: center !important;
+  padding-inline: 0 !important;
+}
+
+.metis-admin-shell.sidebar-collapsed .sidebar .nav li a i {
+  width: auto !important;
+  margin: 0 !important;
+}
+
+.metis-admin-shell.sidebar-collapsed .metis-sidebar-shortcut {
+  justify-content: center !important;
+  padding-inline: 8px !important;
+}
+
+.metis-admin-shell.sidebar-collapsed .metis-sidebar-shortcut-key {
+  margin-left: 0 !important;
+}
+
+.metis-admin-shell .table-responsive,
+.metis-admin-shell .card,
+.metis-admin-shell .content > .row > [class*="col-"] {
+  min-width: 0;
+}
+
+@media (max-width: 991.98px) {
+  .wrapper.metis-admin-shell {
+    display: block;
+  }
+
+  .metis-admin-shell .sidebar,
+  .metis-admin-shell.sidebar-collapsed .sidebar {
+    width: min(280px, 88vw) !important;
+    transform: translateX(-100%) !important;
+  }
+
+  .nav-open .metis-admin-shell .sidebar {
+    transform: translateX(0) !important;
+  }
+
+  .metis-admin-shell .main-panel,
+  .metis-admin-shell.sidebar-collapsed .main-panel {
+    width: 100% !important;
+    margin-left: 0 !important;
+  }
+
+  .metis-sticky-navbar,
+  .metis-admin-shell .metis-project-nav-shell,
+  .metis-admin-shell .main-panel > .content,
+  .metis-admin-shell footer.footer {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
   }
 }

@@ -4,8 +4,10 @@ namespace App\Services\Metis;
 
 use App\Models\MetisDomainEntity;
 use App\Models\MetisDomainVerification;
+use App\Models\MetisEmergencyOverride;
 use App\Models\MetisProject;
 use App\Models\User;
+use Illuminate\Support\Collection;
 
 class ScopeVerifierService
 {
@@ -129,16 +131,44 @@ class ScopeVerifierService
             : $this->isHostnameInVerifiedScope($projectId, $normalizedTarget);
     }
 
-    public function blockedTargets(int $projectId, array $targets, ?User $user = null): array
+    public function isTargetAllowed(
+        int $projectId,
+        string $target,
+        ?User $user = null,
+        ?MetisEmergencyOverride $override = null,
+        ?string $runType = null
+    ): bool {
+        $normalizedTarget = strtolower(trim($target));
+
+        if ($normalizedTarget === '') {
+            return false;
+        }
+
+        if ($this->isTargetInAuthorizedScope($projectId, $normalizedTarget)) {
+            return true;
+        }
+
+        if ($this->overrideAllowsTarget($override, $normalizedTarget, $runType)) {
+            return true;
+        }
+
+        return $this->canBypassActiveScope($user);
+    }
+
+    public function blockedTargets(
+        int $projectId,
+        array $targets,
+        ?User $user = null,
+        ?MetisEmergencyOverride $override = null,
+        ?string $runType = null
+    ): array
     {
         if ($this->canBypassActiveScope($user)) {
             return [];
         }
 
-        return collect($targets)
-            ->filter(fn ($target) => is_string($target) && trim($target) !== '')
-            ->map(fn ($target) => strtolower(trim($target)))
-            ->reject(fn ($target) => $this->isTargetInAuthorizedScope($projectId, $target))
+        return $this->normalizeTargets($targets)
+            ->reject(fn ($target) => $this->isTargetAllowed($projectId, $target, $user, $override, $runType))
             ->values()
             ->all();
     }
@@ -147,7 +177,9 @@ class ScopeVerifierService
     {
         $godModeEnabled = filter_var((string) env('METIS_GOD_MODE', false), FILTER_VALIDATE_BOOL);
 
-        return $godModeEnabled && $user?->isAdmin() === true;
+        return $godModeEnabled
+            && app()->environment(['local', 'testing'])
+            && $user?->isAdmin() === true;
     }
 
     private function markVerified(MetisDomainVerification $verification): void
@@ -231,5 +263,33 @@ class ScopeVerifierService
         $maskByte = (~(0xff >> $remainingBits)) & 0xff;
 
         return (ord($ipBinary[$fullBytes]) & $maskByte) === (ord($subnetBinary[$fullBytes]) & $maskByte);
+    }
+
+    private function normalizeTargets(array $targets): Collection
+    {
+        return collect($targets)
+            ->filter(fn ($target) => is_string($target) && trim($target) !== '')
+            ->map(fn ($target) => strtolower(trim($target)))
+            ->unique()
+            ->values();
+    }
+
+    private function overrideAllowsTarget(?MetisEmergencyOverride $override, string $target, ?string $runType = null): bool
+    {
+        if (! $override || $override->isExpired()) {
+            return false;
+        }
+
+        if (! in_array($override->status, ['confirmed', 'consumed'], true)) {
+            return false;
+        }
+
+        if ($runType && $override->run_type && $override->run_type !== $runType) {
+            return false;
+        }
+
+        return collect($override->targets_json ?? [])
+            ->map(fn ($item) => strtolower(trim((string) $item)))
+            ->contains($target);
     }
 }

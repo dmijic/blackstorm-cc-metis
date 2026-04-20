@@ -27,7 +27,7 @@ class ReconService
 
         $run->markStarted();
 
-        $types = [DNS_A, DNS_AAAA, DNS_CNAME, DNS_MX, DNS_NS, DNS_TXT];
+        $types = [DNS_A, DNS_AAAA, DNS_CNAME, DNS_MX, DNS_NS, DNS_TXT, DNS_SOA];
         $records = [];
         $resolvedHosts = [];
 
@@ -41,6 +41,19 @@ class ReconService
             } catch (\Throwable $e) {
                 Log::warning("DNS lookup failed for {$domain}: " . $e->getMessage());
             }
+        }
+
+        try {
+            $dmarcRecords = dns_get_record('_dmarc.'.$domain, DNS_TXT);
+            if ($dmarcRecords) {
+                $records = array_merge($records, array_map(function (array $record) use ($domain) {
+                    $record['host'] = $record['host'] ?? '_dmarc.'.$domain;
+
+                    return $record;
+                }, $dmarcRecords));
+            }
+        } catch (\Throwable $e) {
+            Log::debug('DMARC lookup failed', ['domain' => $domain, 'error' => $e->getMessage()]);
         }
 
         $rdap = $this->lookupRdap($domain);
@@ -249,10 +262,11 @@ class ReconService
         $results = [];
         $live = 0;
         $blocked = 0;
+        $override = $run->override;
         $bypass = $scopeVerifier->canBypassActiveScope($run->creator);
 
         foreach ($hosts as $hostname) {
-            if (! $bypass && ! $scopeVerifier->isTargetInAuthorizedScope($run->project_id, $hostname)) {
+            if (! $scopeVerifier->isTargetAllowed($run->project_id, $hostname, $run->creator, $override, $run->type)) {
                 Log::warning("Metis HTTP probe blocked: {$hostname} not in authorized scope for project {$run->project_id}");
                 $results[$hostname] = ['blocked' => true, 'reason' => 'not_in_authorized_scope'];
                 $blocked++;
@@ -264,9 +278,12 @@ class ReconService
 
             $this->upsertHostEntity($run->project_id, $hostname, [
                 'ip' => $probeResult['ip'] ?? null,
+                'ip_addresses_json' => $probeResult['resolved_ips'] ?? array_values(array_filter([$probeResult['ip'] ?? null])),
                 'http_json' => $probeResult,
                 'http_status' => $probeResult['status'] ?? null,
                 'is_live' => ! empty($probeResult['status']),
+                'classification' => $probeResult['classification'] ?? null,
+                'favicon_hash' => $probeResult['favicon_hash'] ?? null,
             ]);
 
             if (! empty($probeResult['status'])) {
@@ -277,6 +294,7 @@ class ReconService
         $run->storeOutput([
             'hosts' => $results,
             'god_mode_bypass' => $bypass,
+            'override_id' => $override?->id,
         ]);
 
         $run->markCompleted([
@@ -357,6 +375,11 @@ class ReconService
                 'source' => 'wayback',
                 'status_code' => $status,
                 'first_seen' => $firstSeen,
+                'historical_only' => true,
+                'metadata_json' => [
+                    'historical_only' => true,
+                    'archive_timestamp' => $timestamp,
+                ],
             ]);
 
             if ($created->wasRecentlyCreated) {
@@ -404,10 +427,11 @@ class ReconService
         $results = [];
         $totalPorts = 0;
         $blocked = 0;
+        $override = $run->override;
         $bypass = $scopeVerifier->canBypassActiveScope($run->creator);
 
         foreach ($targets as $target) {
-            if (! $bypass && ! $scopeVerifier->isTargetInAuthorizedScope($run->project_id, $target)) {
+            if (! $scopeVerifier->isTargetAllowed($run->project_id, $target, $run->creator, $override, $run->type)) {
                 $results[$target] = ['blocked' => true, 'reason' => 'not_in_authorized_scope'];
                 $blocked++;
                 continue;
@@ -440,6 +464,7 @@ class ReconService
             'targets' => $results,
             'requested_ports' => $ports,
             'god_mode_bypass' => $bypass,
+            'override_id' => $override?->id,
         ]);
 
         $run->markCompleted([
@@ -468,14 +493,37 @@ class ReconService
                     $title = trim($match[1]);
                 }
 
+                $contentType = $response->header('Content-Type') ?: null;
+                $resolvedIps = $this->resolvedIps($hostname);
+                $robotsPresent = $this->hasRobots($scheme, $hostname);
+                $faviconHash = $this->faviconHash($scheme, $hostname);
+                $finalUrl = $response->effectiveUri()?->__toString() ?? "{$scheme}://{$hostname}/";
+                $classification = $this->classifyHttpSurface(
+                    $hostname,
+                    $response->status(),
+                    $finalUrl,
+                    $title,
+                    $contentType,
+                    $response->body()
+                );
+
                 return [
                     'scheme' => $scheme,
                     'status' => $response->status(),
-                    'final_url' => $response->effectiveUri()?->__toString() ?? "{$scheme}://{$hostname}/",
+                    'final_url' => $finalUrl,
                     'server' => $response->header('Server') ?: null,
                     'title' => mb_substr($title, 0, 200),
                     'powered_by' => $response->header('X-Powered-By') ?: null,
-                    'ip' => @gethostbyname($hostname) ?: null,
+                    'content_type' => $contentType,
+                    'tech_hints' => array_values(array_filter([
+                        $response->header('Server') ?: null,
+                        $response->header('X-Powered-By') ?: null,
+                    ])),
+                    'robots_txt_present' => $robotsPresent,
+                    'favicon_hash' => $faviconHash,
+                    'resolved_ips' => $resolvedIps,
+                    'ip' => $resolvedIps[0] ?? (@gethostbyname($hostname) ?: null),
+                    'classification' => $classification,
                     'probed_at' => now()->toIso8601String(),
                 ];
             } catch (\Throwable) {
@@ -601,5 +649,84 @@ class ReconService
         }
 
         return $resolvedHosts;
+    }
+
+    private function hasRobots(string $scheme, string $hostname): bool
+    {
+        try {
+            $response = Http::timeout(5)
+                ->withOptions(['verify' => true])
+                ->withHeaders(['User-Agent' => 'Metis-Recon/1.0 (authorized security assessment)'])
+                ->get("{$scheme}://{$hostname}/robots.txt");
+
+            return $response->successful() && trim($response->body()) !== '';
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function faviconHash(string $scheme, string $hostname): ?string
+    {
+        try {
+            $response = Http::timeout(5)
+                ->withOptions(['verify' => true])
+                ->withHeaders(['User-Agent' => 'Metis-Recon/1.0 (authorized security assessment)'])
+                ->get("{$scheme}://{$hostname}/favicon.ico");
+
+            if (! $response->successful() || $response->body() === '') {
+                return null;
+            }
+
+            return hash('sha256', $response->body());
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function resolvedIps(string $hostname): array
+    {
+        $ips = [];
+
+        foreach ([DNS_A, DNS_AAAA] as $type) {
+            try {
+                foreach (dns_get_record($hostname, $type) ?: [] as $record) {
+                    $ip = $record['ip'] ?? $record['ipv6'] ?? null;
+                    if ($ip && filter_var($ip, FILTER_VALIDATE_IP)) {
+                        $ips[] = $ip;
+                    }
+                }
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return array_values(array_unique($ips));
+    }
+
+    private function classifyHttpSurface(
+        string $hostname,
+        ?int $status,
+        string $finalUrl,
+        ?string $title,
+        ?string $contentType,
+        string $body
+    ): string {
+        $haystack = strtolower(implode(' ', [
+            $hostname,
+            $finalUrl,
+            (string) $title,
+            (string) $contentType,
+            substr($body, 0, 1000),
+        ]));
+
+        return match (true) {
+            $status !== null && $status >= 300 && $status < 400 => 'redirect-only',
+            str_contains($haystack, '/api') || str_contains($haystack, 'application/json') => 'api',
+            preg_match('/admin|login|signin|dashboard|sso|identity/', $haystack) === 1 => 'admin/login',
+            preg_match('/docs|swagger|openapi|reference/', $haystack) === 1 => 'docs',
+            preg_match('/coming soon|under construction|default page|welcome to nginx|apache2 ubuntu default/', $haystack) === 1 => 'placeholder/default page',
+            $status !== null && $status >= 200 && $status < 500 => 'website',
+            default => 'unknown web service',
+        };
     }
 }

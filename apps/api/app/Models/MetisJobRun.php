@@ -13,11 +13,13 @@ class MetisJobRun extends Model
     protected $fillable = [
         'project_id',
         'created_by',
+        'override_id',
         'type',
         'params_json',
         'status',
         'output_ref',
         'summary_json',
+        'meta_json',
         'error_message',
         'progress',
         'started_at',
@@ -29,6 +31,7 @@ class MetisJobRun extends Model
         return [
             'params_json'  => 'array',
             'summary_json' => 'array',
+            'meta_json'    => 'array',
             'started_at'   => 'datetime',
             'finished_at'  => 'datetime',
         ];
@@ -42,6 +45,11 @@ class MetisJobRun extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function override(): BelongsTo
+    {
+        return $this->belongsTo(MetisEmergencyOverride::class, 'override_id');
     }
 
     public function markStarted(): void
@@ -58,6 +66,7 @@ class MetisJobRun extends Model
             userId: $this->created_by,
             entityType: 'job_run',
             entityId: $this->id,
+            meta: ['override_id' => $this->override_id],
         );
     }
 
@@ -76,7 +85,7 @@ class MetisJobRun extends Model
             userId: $this->created_by,
             entityType: 'job_run',
             entityId: $this->id,
-            meta: $summary,
+            meta: [...$summary, 'override_id' => $this->override_id],
         );
     }
 
@@ -94,7 +103,7 @@ class MetisJobRun extends Model
             userId: $this->created_by,
             entityType: 'job_run',
             entityId: $this->id,
-            meta: ['error' => $error],
+            meta: ['error' => $error, 'override_id' => $this->override_id],
         );
     }
 

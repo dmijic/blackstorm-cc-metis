@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from 'contexts/AuthContext';
-import { getReportJson, getAiSummary } from 'api/metisApi';
-import { Row, Col, Card, CardBody, CardHeader, Button, Badge, Spinner, Alert } from 'reactstrap';
+import { getAiSummary, getReportJson, getReportTemplates, getWorkflowRuns } from 'api/metisApi';
+import { Row, Col, Card, CardBody, CardHeader, Button, Badge, Spinner, Alert, Input } from 'reactstrap';
 
 const SEVERITY_COLORS = { critical: '#ff4444', high: '#ff8800', medium: '#ffcc00', low: '#44aaff', info: '#888' };
 
@@ -18,23 +18,59 @@ function StatBlock({ value, label, color }) {
 export default function MetisReport() {
   const { id }    = useParams();
   const { token } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [report,     setReport]     = useState(null);
+  const [templateReport, setTemplateReport] = useState(null);
+  const [templates,  setTemplates]  = useState([]);
+  const [workflowRuns, setWorkflowRuns] = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [aiSummary,  setAiSummary]  = useState('');
   const [aiLoading,  setAiLoading]  = useState(false);
+  const template = searchParams.get('template') || 'metis-technical-recon';
+  const selectedWorkflowRunId = searchParams.get('workflow_run_id') || '';
+  const strictEvidence = searchParams.get('strict_evidence') !== '0';
+  const aiAssist = searchParams.get('ai_assist') === '1';
+  const evidenceDepth = searchParams.get('evidence_depth') || 'full';
+
+  const updateParam = useCallback((key, value) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === null || value === undefined || value === '') {
+      next.delete(key);
+    } else {
+      next.set(key, String(value));
+    }
+    setSearchParams(next);
+  }, [searchParams, setSearchParams]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getReportJson(id, token);
-      setReport(res);
+      const reportParams = {
+        template,
+        workflow_run_id: selectedWorkflowRunId || undefined,
+        strict_evidence: strictEvidence ? 1 : 0,
+        ai_assist: aiAssist ? 1 : 0,
+      };
+
+      const [rawReportRes, templateReportRes, templateRes, workflowRunsRes] = await Promise.all([
+        getReportJson(id, {
+          workflow_run_id: selectedWorkflowRunId || undefined,
+          strict_evidence: strictEvidence ? 1 : 0,
+        }, token),
+        getReportJson(id, reportParams, token),
+        getReportTemplates(token).catch(() => ({ data: [] })),
+        getWorkflowRuns(id, {}, token).catch(() => ({ data: [] })),
+      ]);
+      setReport(rawReportRes);
+      setTemplateReport(templateReportRes);
+      setTemplates(templateRes.data || []);
+      setWorkflowRuns(workflowRunsRes.data || []);
     } catch (e) {
       console.error(e);
     }
     setLoading(false);
-  }, [id, token]);
+  }, [aiAssist, id, selectedWorkflowRunId, strictEvidence, template, token]);
 
   useEffect(() => { load(); }, [load]);
   const fetchAi = useCallback(async () => {
@@ -65,7 +101,17 @@ export default function MetisReport() {
   const downloadHtml = async () => {
     try {
       const baseUrl = import.meta.env.VITE_API_URL || '/api';
-      const response = await fetch(`${baseUrl}/metis/projects/${id}/report/html?ai_summary=${!!aiSummary}`, {
+      const htmlParams = new URLSearchParams({
+        template,
+        ai_summary: aiSummary ? '1' : '0',
+        strict_evidence: strictEvidence ? '1' : '0',
+        ai_assist: aiAssist ? '1' : '0',
+      });
+      if (selectedWorkflowRunId) {
+        htmlParams.set('workflow_run_id', selectedWorkflowRunId);
+      }
+
+      const response = await fetch(`${baseUrl}/metis/projects/${id}/report/html?${htmlParams.toString()}`, {
         headers: {
           Accept: 'text/html',
           Authorization: `Bearer ${token}`,
@@ -88,7 +134,17 @@ export default function MetisReport() {
   const downloadPdf = async () => {
     try {
       const baseUrl = import.meta.env.VITE_API_URL || '/api';
-      const response = await fetch(`${baseUrl}/metis/projects/${id}/report/pdf?ai_summary=${!!aiSummary}`, {
+      const pdfParams = new URLSearchParams({
+        template,
+        ai_summary: aiSummary ? '1' : '0',
+        strict_evidence: strictEvidence ? '1' : '0',
+        ai_assist: aiAssist ? '1' : '0',
+      });
+      if (selectedWorkflowRunId) {
+        pdfParams.set('workflow_run_id', selectedWorkflowRunId);
+      }
+
+      const response = await fetch(`${baseUrl}/metis/projects/${id}/report/pdf?${pdfParams.toString()}`, {
         headers: {
           Accept: 'application/pdf',
           Authorization: `Bearer ${token}`,
@@ -112,10 +168,26 @@ export default function MetisReport() {
 
   if (loading) return <div className="content" style={{ textAlign: 'center', padding: 60 }}><Spinner color="info" /></div>;
 
-  const stats = report?.statistics || {};
-  const findings = report?.findings || [];
-  const hosts = report?.surface_map?.hosts || [];
-  const intelHits = report?.intel_hits || [];
+  const rawReport = report?.statistics ? report : null;
+  const stats = rawReport?.statistics || {};
+  const findings = rawReport?.findings || [];
+  const hosts = rawReport?.surface_map?.hosts || [];
+  const intelHits = rawReport?.intel_hits || [];
+  const formatSection = (section) => {
+    if (evidenceDepth === 'full') {
+      return JSON.stringify(section.content, null, 2);
+    }
+
+    if (Array.isArray(section.content)) {
+      return `${section.content.length} items`;
+    }
+
+    if (section.content && typeof section.content === 'object') {
+      return Object.keys(section.content).join(', ') || 'Structured section';
+    }
+
+    return String(section.content ?? '—');
+  };
 
   return (
     <div className="content">
@@ -123,7 +195,7 @@ export default function MetisReport() {
         <div>
           <h4 style={{ color: '#e6edf3', margin: 0 }}>Security Report</h4>
           <p style={{ color: '#8b949e', fontSize: 13, marginTop: 4 }}>
-            Generated: {report?.meta?.generated_at?.slice(0, 16)} UTC
+            Template: {templateReport?.meta?.template?.name || template} · Generated: {report?.meta?.generated_at?.slice(0, 16)} UTC
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
@@ -138,6 +210,70 @@ export default function MetisReport() {
           </Button>
         </div>
       </div>
+
+      <Card style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, marginBottom: 24 }}>
+        <CardHeader style={{ background: 'transparent', borderBottom: '1px solid #21262d', padding: '14px 20px' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#e6edf3' }}>Report Builder</span>
+        </CardHeader>
+        <CardBody style={{ padding: 20 }}>
+          <Row>
+            <Col md={4} style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, color: '#8b949e', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Template Pack</div>
+              <Input
+                type="select"
+                value={template}
+                onChange={(event) => updateParam('template', event.target.value)}
+                style={{ background: '#0d1117', border: '1px solid #30363d', color: '#c9d1d9', fontSize: 12 }}
+              >
+                {templates.map((item) => (
+                  <option key={item.slug} value={item.slug}>{item.name}</option>
+                ))}
+              </Input>
+            </Col>
+            <Col md={4} style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, color: '#8b949e', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Project Snapshot</div>
+              <Input
+                type="select"
+                value={selectedWorkflowRunId}
+                onChange={(event) => updateParam('workflow_run_id', event.target.value)}
+                style={{ background: '#0d1117', border: '1px solid #30363d', color: '#c9d1d9', fontSize: 12 }}
+              >
+                <option value="">Latest project state</option>
+                {workflowRuns.map((run) => (
+                  <option key={run.id} value={run.id}>
+                    #{run.id} · {run.status} · {run.created_at?.slice(0, 16).replace('T', ' ')}
+                  </option>
+                ))}
+              </Input>
+            </Col>
+            <Col md={4} style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, color: '#8b949e', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Evidence Depth</div>
+              <Input
+                type="select"
+                value={evidenceDepth}
+                onChange={(event) => updateParam('evidence_depth', event.target.value)}
+                style={{ background: '#0d1117', border: '1px solid #30363d', color: '#c9d1d9', fontSize: 12 }}
+              >
+                <option value="full">Full raw evidence</option>
+                <option value="summary">Compact preview</option>
+              </Input>
+            </Col>
+          </Row>
+          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#c9d1d9', fontSize: 12, margin: 0 }}>
+              <input type="checkbox" checked={strictEvidence} onChange={(event) => updateParam('strict_evidence', event.target.checked ? 1 : 0)} style={{ accentColor: '#4fc3f7' }} />
+              Strictly evidence-based mode
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#c9d1d9', fontSize: 12, margin: 0 }}>
+              <input type="checkbox" checked={aiAssist} onChange={(event) => updateParam('ai_assist', event.target.checked ? 1 : 0)} style={{ accentColor: '#4fc3f7' }} />
+              AI-assisted drafting
+            </label>
+          </div>
+          <div style={{ fontSize: 11, color: '#8b949e', marginTop: 12, lineHeight: 1.6 }}>
+            Snapshot selection binds the report to a specific workflow run context. Strict mode keeps observed facts and inferred conclusions more explicitly separated.
+          </div>
+        </CardBody>
+      </Card>
 
       {/* AI Executive Brief */}
       <Card style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, marginBottom: 24 }}>
@@ -162,6 +298,19 @@ export default function MetisReport() {
           )}
         </CardBody>
       </Card>
+
+      {templateReport?.narrative?.content && (
+        <Card style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, marginBottom: 24 }}>
+          <CardHeader style={{ background: 'transparent', borderBottom: '1px solid #21262d', padding: '14px 20px' }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#e6edf3' }}>Evidence Narrative</span>
+          </CardHeader>
+          <CardBody style={{ padding: 20 }}>
+            <div style={{ fontSize: 13, color: '#c9d1d9', whiteSpace: 'pre-wrap', lineHeight: 1.75 }}>
+              {templateReport.narrative.content}
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       {/* Stats */}
       <Row style={{ marginBottom: 24 }}>
@@ -304,6 +453,29 @@ export default function MetisReport() {
           )}
         </CardBody>
       </Card>
+
+      {templateReport?.sections?.length > 0 && (
+        <Card style={{ background: '#161b22', border: '1px solid #30363d', borderRadius: 8, marginTop: 24 }}>
+          <CardHeader style={{ background: 'transparent', borderBottom: '1px solid #21262d', padding: '14px 18px' }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#e6edf3' }}>Report Sections</span>
+          </CardHeader>
+          <CardBody style={{ padding: 20 }}>
+            <div style={{ display: 'grid', gap: 14 }}>
+              {templateReport.sections.map((section) => (
+                <div key={section.key} style={{ border: '1px solid #30363d', background: '#0d1117', padding: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center' }}>
+                    <div style={{ fontSize: 13, color: '#e6edf3', fontWeight: 600 }}>{section.title}</div>
+                    <Badge style={{ background: '#21262d', color: '#8b949e' }}>{section.classification}</Badge>
+                  </div>
+                  <pre style={{ margin: '10px 0 0', fontSize: 11, color: '#c9d1d9', background: 'transparent', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                    {formatSection(section)}
+                  </pre>
+                </div>
+              ))}
+            </div>
+          </CardBody>
+        </Card>
+      )}
     </div>
   );
 }

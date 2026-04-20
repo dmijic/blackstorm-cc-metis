@@ -21,6 +21,7 @@ import {
   Table,
 } from "reactstrap";
 
+import GuidedHelpTour from "components/GuidedHelpTour";
 import { apiRequest } from "lib/api.js";
 
 const emptyForm = {
@@ -45,12 +46,68 @@ function ResponsePlaybooks() {
   const [editingPlaybookId, setEditingPlaybookId] = React.useState(null);
   const [form, setForm] = React.useState(emptyForm);
 
+  const helpSteps = React.useMemo(
+    () => [
+      {
+        selector: ".playbooks-help-header",
+        title: "Playbook overview",
+        body: "Playbook povezuje finding pravila sa SOAR-lite akcijama kao što su webhookovi, ticketing ili interne notifikacije.",
+        hint: "Prvo složi pravilo, pa tek onda dodaj jednu ili više akcija.",
+      },
+      {
+        selector: ".playbooks-help-add",
+        title: "Create or edit",
+        body: "Ovdje otvaraš editor za novi playbook ili kasnije uređuješ postojeći unos iz tablice.",
+        hint: "Help te dalje vodi kroz polja istog editora.",
+      },
+      {
+        selector: "#playbook-name",
+        title: "Name",
+        body: "Naziv neka jasno kaže kada se playbook aktivira, npr. `High severity webhook alert` ili `Critical Jira escalation`.",
+        hint: "Ovaj korak po potrebi automatski otvara editor da možeš vidjeti polja.",
+        onEnter: () => {
+          if (!modalOpen) {
+            setFeedbackMessage("");
+            setEditingPlaybookId(null);
+            setForm({
+              name: "Critical Exposure Escalation",
+              enabled: true,
+              rules_json: '{\n  "severity": "critical",\n  "status": "open"\n}',
+              actions_json: '[\n  {\n    "action_type": "webhook",\n    "config_json": {\n      "url": "https://hooks.example.test/security",\n      "secret": "masked-placeholder"\n    }\n  }\n]',
+            });
+            setModalErrorMessage("");
+            setModalOpen(true);
+          }
+        },
+      },
+      {
+        selector: "#playbook-rules",
+        title: "rules_json",
+        body: "Ovdje definiraš kada se playbook aktivira: severity, confidence, status ili druga polja koja backend već zna obraditi.",
+        hint: "Kreni s jednostavnim pravilom i tek onda dodaj dodatne uvjete.",
+      },
+      {
+        selector: "#playbook-actions",
+        title: "actions_json",
+        body: "Akcije su niz objekata. Svaki objekt definira `action_type` i svoj `config_json` payload prema konektoru koji koristiš.",
+        hint: "Najprije testiraj s jednim webhookom, pa tek onda proširi na više akcija.",
+      },
+      {
+        selector: ".playbooks-help-table",
+        title: "Testiranje i održavanje",
+        body: "Iz tablice možeš pokrenuti test, urediti playbook ili ga obrisati. Test stvara action run zapis koji kasnije pratiš na Action Runs ekranu.",
+        hint: "Nakon testa prijeđi na `Action Runs` da vidiš je li isporuka stvarno prošla.",
+      },
+    ],
+    [modalOpen]
+  );
+
   const loadPlaybooks = async () => {
     setIsLoading(true);
     setErrorMessage("");
 
     try {
-      const payload = await apiRequest("/api/response/playbooks");
+      const payload = await apiRequest("/response/playbooks");
       setPlaybooks(payload.data || []);
     } catch (error) {
       setErrorMessage(error.message || "Unable to load playbooks.");
@@ -116,12 +173,12 @@ function ResponsePlaybooks() {
       };
 
       if (editingPlaybookId) {
-        await apiRequest(`/api/response/playbooks/${editingPlaybookId}`, {
+        await apiRequest(`/response/playbooks/${editingPlaybookId}`, {
           method: "PUT",
           body: JSON.stringify(payload),
         });
       } else {
-        await apiRequest("/api/response/playbooks", {
+        await apiRequest("/response/playbooks", {
           method: "POST",
           body: JSON.stringify(payload),
         });
@@ -146,7 +203,7 @@ function ResponsePlaybooks() {
     }
 
     try {
-      await apiRequest(`/api/response/playbooks/${playbookId}`, {
+      await apiRequest(`/response/playbooks/${playbookId}`, {
         method: "DELETE",
       });
       await loadPlaybooks();
@@ -163,7 +220,7 @@ function ResponsePlaybooks() {
     }
 
     try {
-      const payload = await apiRequest(`/api/response/playbooks/${playbookId}/test`, {
+      const payload = await apiRequest(`/response/playbooks/${playbookId}/test`, {
         method: "POST",
         body: JSON.stringify({
           finding_id: Number(findingId),
@@ -183,28 +240,45 @@ function ResponsePlaybooks() {
       <Row>
         <Col lg="12">
           <Card>
-            <CardHeader className="d-flex justify-content-between align-items-center">
-              <div>
-                <CardTitle tag="h2">Response Playbooks</CardTitle>
-                <p className="card-category mb-0">
-                  SOAR-lite rules and actions
-                </p>
+            <CardHeader className="playbooks-help-header">
+              <div className="d-flex justify-content-between align-items-start flex-wrap" style={{ gap: 12 }}>
+                <div>
+                  <CardTitle tag="h2">Response Playbooks</CardTitle>
+                  <p className="card-category mb-0">
+                    SOAR-lite rules and actions
+                  </p>
+                </div>
+                <div className="d-flex align-items-center flex-wrap" style={{ gap: 8 }}>
+                  <GuidedHelpTour
+                    title="Playbooks Help"
+                    buttonLabel="Help"
+                    autoOpenOnce={false}
+                    steps={helpSteps}
+                  />
+                  <Button
+                    className="playbooks-help-add"
+                    color="info"
+                    onClick={openCreateModal}
+                  >
+                    Add Playbook
+                  </Button>
+                </div>
               </div>
-              <Button color="info" onClick={openCreateModal}>
-                Add Playbook
-              </Button>
             </CardHeader>
             <CardBody>
               {errorMessage ? <Alert color="danger">{errorMessage}</Alert> : null}
               {feedbackMessage ? (
                 <Alert color="success">{feedbackMessage}</Alert>
               ) : null}
+              <Alert color="secondary">
+                <strong>Quick pattern:</strong> 1. define a small `rules_json` filter, 2. add one delivery action, 3. use <code>Test</code> to queue a run, 4. inspect the result on <code>Action Runs</code>, 5. only then add more destinations.
+              </Alert>
               {isLoading ? (
                 <div className="text-center py-5">
                   <Spinner color="info" />
                 </div>
               ) : (
-                <Table className="tablesorter" responsive>
+                <Table className="tablesorter playbooks-help-table" responsive>
                   <thead className="text-primary">
                     <tr>
                       <th>Name</th>

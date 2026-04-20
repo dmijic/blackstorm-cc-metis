@@ -135,6 +135,45 @@ class ScopeController extends Controller
         ]);
     }
 
+    public function destroyVerification(
+        Request $request,
+        MetisProject $project,
+        MetisDomainVerification $verification
+    ): JsonResponse {
+        abort_if($verification->project_id !== $project->id, 404);
+
+        $domain = strtolower($verification->domain);
+        $verification->delete();
+
+        $stillVerified = $project->domainVerifications()
+            ->where('domain', $domain)
+            ->where('status', 'verified')
+            ->exists();
+
+        MetisDomainEntity::query()
+            ->where('project_id', $project->id)
+            ->where('domain', $domain)
+            ->update([
+                'verified' => $stillVerified,
+                'classification' => $stillVerified ? 'verified_domain' : 'discovered_domain',
+                'last_seen' => now(),
+            ]);
+
+        MetisAuditLog::record(
+            action: 'domain.verification_deleted',
+            projectId: $project->id,
+            userId: $request->user()->id,
+            meta: ['domain' => $domain],
+            ip: $request->ip()
+        );
+
+        return response()->json([
+            'deleted' => true,
+            'domain' => $domain,
+            'still_verified' => $stillVerified,
+        ]);
+    }
+
     private function normalizeValues(array $values, bool $lowercase = false): array
     {
         return collect($values)

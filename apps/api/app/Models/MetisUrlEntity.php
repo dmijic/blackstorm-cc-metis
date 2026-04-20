@@ -14,6 +14,9 @@ class MetisUrlEntity extends Model
         'url',
         'source',
         'status_code',
+        'metadata_json',
+        'classification',
+        'historical_only',
         'first_seen',
         'last_seen',
     ];
@@ -21,6 +24,8 @@ class MetisUrlEntity extends Model
     protected function casts(): array
     {
         return [
+            'metadata_json' => 'array',
+            'historical_only' => 'boolean',
             'first_seen' => 'datetime',
             'last_seen'  => 'datetime',
         ];

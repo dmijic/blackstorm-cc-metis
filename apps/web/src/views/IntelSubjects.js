@@ -45,7 +45,7 @@ function IntelSubjects() {
     setErrorMessage("");
 
     try {
-      const payload = await apiRequest("/api/intel/subjects");
+      const payload = await apiRequest("/intel/subjects");
       setSubjects(payload.data || []);
     } catch (error) {
       setErrorMessage(error.message || "Unable to load subjects.");
@@ -111,12 +111,12 @@ function IntelSubjects() {
       };
 
       if (editingSubjectId) {
-        await apiRequest(`/api/intel/subjects/${editingSubjectId}`, {
+        await apiRequest(`/intel/subjects/${editingSubjectId}`, {
           method: "PUT",
           body: JSON.stringify(payload),
         });
       } else {
-        await apiRequest("/api/intel/subjects", {
+        await apiRequest("/intel/subjects", {
           method: "POST",
           body: JSON.stringify(payload),
         });
@@ -141,7 +141,7 @@ function IntelSubjects() {
     }
 
     try {
-      await apiRequest(`/api/intel/subjects/${subjectId}`, {
+      await apiRequest(`/intel/subjects/${subjectId}`, {
         method: "DELETE",
       });
       await loadSubjects();

@@ -65,7 +65,7 @@ function IntelInbox() {
     setErrorMessage("");
 
     try {
-      const payload = await apiRequest("/api/intel/findings");
+      const payload = await apiRequest("/intel/findings");
       setFindings(payload.data || []);
     } catch (error) {
       setErrorMessage(error.message || "Unable to load findings.");
@@ -86,7 +86,7 @@ function IntelInbox() {
     setSelectedFinding(null);
 
     try {
-      const payload = await apiRequest(`/api/intel/findings/${findingId}`);
+      const payload = await apiRequest(`/intel/findings/${findingId}`);
       setSelectedFinding(payload.data);
     } catch (error) {
       setDetailError(error.message || "Unable to load finding detail.");
@@ -113,7 +113,7 @@ function IntelInbox() {
 
     try {
       const payload = await apiRequest(
-        `/api/intel/findings/${selectedFindingId}/triage`,
+        `/intel/findings/${selectedFindingId}/triage`,
         {
           method: "POST",
           body: JSON.stringify({

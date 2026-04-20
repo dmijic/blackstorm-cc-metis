@@ -20,14 +20,26 @@ class ReportController extends Controller
 
     public function json(Request $request, MetisProject $project): JsonResponse
     {
+        $payload = $request->filled('template')
+            ? $this->reportService->buildTemplateReport($project, (string) $request->query('template'), [
+                'strict_evidence' => $request->boolean('strict_evidence'),
+                'workflow_run_id' => $request->integer('workflow_run_id'),
+                'ai_assist' => $request->boolean('ai_assist'),
+            ])
+            : $this->reportService->generateJson($project, [
+                'strict_evidence' => $request->boolean('strict_evidence'),
+                'workflow_run_id' => $request->integer('workflow_run_id'),
+            ]);
+
         MetisAuditLog::record(
             action: 'report.generated.json',
             projectId: $project->id,
             userId: $request->user()->id,
+            meta: ['template' => $request->query('template')],
             ip: $request->ip()
         );
 
-        return response()->json($this->reportService->generateJson($project));
+        return response()->json($payload);
     }
 
     public function html(Request $request, MetisProject $project): Response
@@ -45,7 +57,12 @@ class ReportController extends Controller
             ip: $request->ip()
         );
 
-        $html = $this->reportService->generateHtml($project, $aiSummary);
+        $html = $this->reportService->generateHtml($project, $aiSummary, [
+            'template' => $request->query('template', 'metis-technical-recon'),
+            'strict_evidence' => $request->boolean('strict_evidence'),
+            'workflow_run_id' => $request->integer('workflow_run_id'),
+            'ai_assist' => $request->boolean('ai_assist'),
+        ]);
 
         return response($html, 200, [
             'Content-Type' => 'text/html; charset=UTF-8',
@@ -65,7 +82,12 @@ class ReportController extends Controller
             ip: $request->ip()
         );
 
-        $pdf = $this->reportService->generatePdf($project, $aiSummary);
+        $pdf = $this->reportService->generatePdf($project, $aiSummary, [
+            'template' => $request->query('template', 'metis-technical-recon'),
+            'strict_evidence' => $request->boolean('strict_evidence'),
+            'workflow_run_id' => $request->integer('workflow_run_id'),
+            'ai_assist' => $request->boolean('ai_assist'),
+        ]);
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',

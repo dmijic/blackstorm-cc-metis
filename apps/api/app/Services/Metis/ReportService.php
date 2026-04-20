@@ -2,62 +2,123 @@
 
 namespace App\Services\Metis;
 
+use App\Models\MetisEmergencyOverride;
 use App\Models\MetisProject;
+use App\Models\MetisReportTemplate;
+use Illuminate\Support\Str;
 
 class ReportService
 {
-    public function generateJson(MetisProject $project): array
+    public function __construct(
+        private readonly AiService $aiService,
+    ) {}
+
+    public function generateJson(MetisProject $project, array $options = []): array
     {
-        $project->load(['scope', 'domainEntities', 'hostEntities', 'urlEntities', 'findingEntities', 'jobRuns', 'intelHits']);
+        $project->load([
+            'scope',
+            'domainVerifications',
+            'domainEntities',
+            'hostEntities',
+            'urlEntities',
+            'findingEntities',
+            'jobRuns.override',
+            'intelHits',
+            'infraGroups.assets',
+        ]);
+
+        $latestOverride = $project->jobRuns
+            ->pluck('override')
+            ->filter()
+            ->sortByDesc('created_at')
+            ->first();
 
         return [
             'meta' => [
                 'generated_at' => now()->toIso8601String(),
-                'project'      => [
-                    'id'          => $project->id,
-                    'name'        => $project->name,
-                    'client'      => $project->client,
+                'project' => [
+                    'id' => $project->id,
+                    'name' => $project->name,
+                    'client' => $project->client,
                     'description' => $project->description,
-                    'status'      => $project->status,
+                    'status' => $project->status,
                 ],
+                'strict_evidence' => (bool) ($options['strict_evidence'] ?? false),
+                'workflow_run_id' => $options['workflow_run_id'] ?? null,
+                'override' => $this->overrideMeta($latestOverride),
             ],
             'scope' => [
-                'root_domains'    => $project->scope?->root_domains ?? [],
-                'brand_keywords'  => $project->scope?->brand_keywords ?? [],
-                'known_subdomains'=> $project->scope?->known_subdomains ?? [],
-                'ip_ranges'       => $project->scope?->ip_ranges ?? [],
-                'github_orgs'     => $project->scope?->github_orgs ?? [],
-                'email_domains'   => $project->scope?->email_domains ?? [],
+                'root_domains' => $project->scope?->root_domains ?? [],
+                'brand_keywords' => $project->scope?->brand_keywords ?? [],
+                'known_subdomains' => $project->scope?->known_subdomains ?? [],
+                'ip_ranges' => $project->scope?->ip_ranges ?? [],
+                'github_orgs' => $project->scope?->github_orgs ?? [],
+                'email_domains' => $project->scope?->email_domains ?? [],
+                'verified_domains' => $project->domainVerifications
+                    ->where('status', 'verified')
+                    ->pluck('domain')
+                    ->values()
+                    ->all(),
             ],
             'surface_map' => [
-                'domains' => $project->domainEntities->map(fn($d) => [
-                    'domain'   => $d->domain,
+                'domains' => $project->domainEntities->map(fn ($d) => [
+                    'domain' => $d->domain,
                     'verified' => $d->verified,
-                    'layer'    => $d->layer,
-                    'dns'      => $d->dns_json,
-                    'ct'       => $d->ct_sources_json,
-                ]),
-                'hosts' => $project->hostEntities->map(fn($h) => [
+                    'layer' => $d->layer,
+                    'dns' => $d->dns_json,
+                    'dns_summary' => $d->dns_summary_json,
+                    'ownership' => $d->ownership_summary_json,
+                    'related_ips' => $d->related_ips_json,
+                    'provider_hint' => $d->provider_hint,
+                    'classification' => $d->classification,
+                    'ct' => $d->ct_sources_json,
+                ])->values()->all(),
+                'hosts' => $project->hostEntities->map(fn ($h) => [
                     'hostname' => $h->hostname,
-                    'ip'       => $h->ip,
-                    'is_live'  => $h->is_live,
-                    'status'   => $h->http_status,
-                    'title'    => $h->http_json['title'] ?? null,
-                    'server'   => $h->http_json['server'] ?? null,
-                    'ports'    => $h->open_ports,
-                ]),
+                    'ip' => $h->ip,
+                    'ip_addresses' => $h->ip_addresses_json,
+                    'is_live' => $h->is_live,
+                    'status' => $h->http_status,
+                    'http' => $h->http_json,
+                    'title' => $h->http_json['title'] ?? null,
+                    'server' => $h->http_json['server'] ?? null,
+                    'ports' => $h->open_ports,
+                    'service' => $h->service_json,
+                    'tls' => $h->tls_json,
+                    'banner' => $h->banner_json,
+                    'network' => $h->network_json,
+                    'provider_hint' => $h->provider_hint,
+                    'classification' => $h->classification,
+                ])->values()->all(),
                 'urls_count' => $project->urlEntities()->count(),
             ],
-            'findings' => $project->findingEntities->map(fn($f) => [
-                'id'         => $f->id,
-                'type'       => $f->type,
-                'severity'   => $f->severity,
-                'title'      => $f->title,
-                'summary'    => $f->summary,
+            'infra_groups' => $project->infraGroups->map(fn ($group) => [
+                'id' => $group->id,
+                'type' => $group->type,
+                'name' => $group->name,
+                'summary' => $group->summary,
+                'fingerprint' => $group->fingerprint,
+                'asset_count' => $group->asset_count,
+                'metadata' => $group->metadata_json,
+                'assets' => $group->assets->map(fn ($asset) => [
+                    'entity_type' => $asset->entity_type,
+                    'entity_id' => $asset->entity_id,
+                    'asset_key' => $asset->asset_key,
+                    'label' => $asset->label,
+                    'metadata' => $asset->metadata_json,
+                ])->values()->all(),
+            ])->values()->all(),
+            'findings' => $project->findingEntities->map(fn ($f) => [
+                'id' => $f->id,
+                'type' => $f->type,
+                'severity' => $f->severity,
+                'title' => $f->title,
+                'summary' => $f->summary,
                 'confidence' => $f->confidence,
-                'status'     => $f->status,
-            ]),
-            'intel_hits' => $project->intelHits->map(fn($hit) => [
+                'status' => $f->status,
+                'evidence' => $f->evidence_json,
+            ])->values()->all(),
+            'intel_hits' => $project->intelHits->map(fn ($hit) => [
                 'id' => $hit->id,
                 'provider_type' => $hit->provider_type,
                 'hit_type' => $hit->hit_type,
@@ -67,68 +128,197 @@ class ReportService
                 'matched_keyword' => $hit->matched_keyword,
                 'source_url' => $hit->source_url,
                 'discovered_at' => $hit->discovered_at?->toIso8601String(),
-            ]),
+            ])->values()->all(),
             'statistics' => [
-                'total_domains'   => $project->domainEntities()->count(),
-                'live_hosts'      => $project->hostEntities()->where('is_live', true)->count(),
-                'total_urls'      => $project->urlEntities()->count(),
-                'open_findings'   => $project->findingEntities()->where('status', 'open')->count(),
-                'critical_findings'=> $project->findingEntities()->where('severity', 'critical')->count(),
-                'high_findings'   => $project->findingEntities()->where('severity', 'high')->count(),
-                'intel_hits'      => $project->intelHits()->count(),
+                'total_domains' => $project->domainEntities()->count(),
+                'verified_domains' => $project->domainEntities()->where('verified', true)->count(),
+                'live_hosts' => $project->hostEntities()->where('is_live', true)->count(),
+                'total_urls' => $project->urlEntities()->count(),
+                'open_findings' => $project->findingEntities()->where('status', 'open')->count(),
+                'critical_findings' => $project->findingEntities()->where('severity', 'critical')->count(),
+                'high_findings' => $project->findingEntities()->where('severity', 'high')->count(),
+                'intel_hits' => $project->intelHits()->count(),
+                'infra_groups' => $project->infraGroups()->count(),
             ],
-            'job_runs' => $project->jobRuns->map(fn($j) => [
-                'id'       => $j->id,
-                'type'     => $j->type,
-                'status'   => $j->status,
-                'summary'  => $j->summary_json,
-                'started'  => $j->started_at?->toIso8601String(),
+            'job_runs' => $project->jobRuns->map(fn ($j) => [
+                'id' => $j->id,
+                'type' => $j->type,
+                'status' => $j->status,
+                'summary' => $j->summary_json,
+                'started' => $j->started_at?->toIso8601String(),
                 'finished' => $j->finished_at?->toIso8601String(),
-            ]),
+                'override_id' => $j->override_id,
+            ])->values()->all(),
         ];
     }
 
-    public function generateHtml(MetisProject $project, ?string $aiSummary = null): string
+    public function buildTemplateReport(MetisProject $project, string $templateSlug, array $options = []): array
     {
-        $data     = $this->generateJson($project);
-        $stats    = $data['statistics'];
-        $now      = now()->format('Y-m-d H:i:s') . ' UTC';
-        $findings = $data['findings'];
-        $intelHits = $data['intel_hits'];
-        $scopeRootDomains = htmlspecialchars(implode(', ', $data['scope']['root_domains']));
-        $scopeIpRanges = htmlspecialchars(implode(', ', $data['scope']['ip_ranges']));
-        $scopeGithubOrgs = htmlspecialchars(implode(', ', $data['scope']['github_orgs']));
+        $template = MetisReportTemplate::query()->where('slug', $templateSlug)->first();
+        $data = $this->generateJson($project, $options);
+        $stats = $data['statistics'];
+        $strictEvidence = (bool) ($options['strict_evidence'] ?? false);
+
+        $assetInventory = [
+            'domains' => $stats['total_domains'],
+            'verified_domains' => $stats['verified_domains'],
+            'live_hosts' => $stats['live_hosts'],
+            'historical_urls' => $stats['total_urls'],
+        ];
+
+        $observedSummary = [
+            'asset_inventory' => $assetInventory,
+            'infra_groups' => $stats['infra_groups'],
+            'findings' => $stats['open_findings'],
+            'intel_hits' => $stats['intel_hits'],
+        ];
+
+        $inferredSummary = [
+            'provider_hints' => collect($data['surface_map']['hosts'])
+                ->pluck('provider_hint')
+                ->filter()
+                ->unique()
+                ->values()
+                ->all(),
+            'shared_certificate_groups' => collect($data['infra_groups'])
+                ->where('type', 'shared_certificate')
+                ->count(),
+            'shared_ip_groups' => collect($data['infra_groups'])
+                ->where('type', 'shared_ip')
+                ->count(),
+        ];
+
+        $recommendedSummary = [
+            'recommended_next_steps' => $this->recommendedNextSteps($data),
+        ];
+
+        $narrative = ($options['ai_assist'] ?? false) && ! $strictEvidence
+            ? $this->aiService->groundedInterpretation(
+                $template?->name ?? Str::headline(str_replace('-', ' ', $templateSlug)),
+                $observedSummary,
+                $inferredSummary,
+                $recommendedSummary,
+                ['mode' => 'report_draft']
+            )
+            : [
+                'content' => $this->deterministicNarrative($observedSummary, $inferredSummary, $recommendedSummary),
+                'meta' => ['provider' => null, 'model' => null, 'grounded' => true, 'mode' => 'deterministic'],
+            ];
+
+        $sections = [
+            $this->section('cover', 'Cover', 'observed', [
+                'report_title' => $template?->name ?? 'Metis Technical Recon Report',
+                'project' => $data['meta']['project'],
+                'generated_at' => $data['meta']['generated_at'],
+            ]),
+            $this->section('scope_authorization', 'Scope & Authorization', 'observed', [
+                'scope' => $data['scope'],
+                'override' => $data['meta']['override'],
+            ]),
+            $this->section('methodology', 'Methodology', 'observed', [
+                'passive' => ['dns discovery', 'certificate transparency', 'rdap/whois', 'search recon', 'github public hints', 'wayback'],
+                'active' => ['http probing', 'tls fingerprinting', 'port scanning', 'service fingerprinting', 'directory discovery', 'safe validation'],
+                'strict_evidence' => $strictEvidence,
+            ]),
+            $this->section('data_sources', 'Data Sources', 'observed', [
+                'providers' => collect($data['intel_hits'])->pluck('provider_type')->unique()->values()->all(),
+                'job_types' => collect($data['job_runs'])->pluck('type')->unique()->values()->all(),
+            ]),
+            $this->section('asset_inventory', 'Asset Inventory', 'observed', $assetInventory),
+            $this->section('dns_ownership', 'DNS & Ownership Summary', 'observed', [
+                'domains' => collect($data['surface_map']['domains'])->map(fn ($domain) => [
+                    'domain' => $domain['domain'],
+                    'dns_summary' => $domain['dns_summary'],
+                    'ownership' => $domain['ownership'],
+                    'related_ips' => $domain['related_ips'],
+                ])->values()->all(),
+            ]),
+            $this->section('infrastructure_grouping', 'Infrastructure Grouping', 'observed', [
+                'groups' => $data['infra_groups'],
+            ]),
+            $this->section('exposure_summary', 'Exposure Summary', 'observed', [
+                'hosts' => collect($data['surface_map']['hosts'])->map(fn ($host) => [
+                    'hostname' => $host['hostname'],
+                    'classification' => $host['classification'],
+                    'ports' => $host['ports'],
+                    'provider_hint' => $host['provider_hint'],
+                ])->values()->all(),
+                'intel_hits' => $data['intel_hits'],
+            ]),
+            $this->section('findings', 'Findings', 'observed', $data['findings']),
+            $this->section('historical_surface', 'Historical Surface', 'observed', [
+                'urls' => collect($project->urlEntities()->where('historical_only', true)->latest('first_seen')->limit(150)->get())
+                    ->map(fn ($url) => [
+                        'url' => $url->url,
+                        'first_seen' => $url->first_seen?->toIso8601String(),
+                        'status_code' => $url->status_code,
+                    ])
+                    ->values()
+                    ->all(),
+            ]),
+            $this->section('change_analysis', 'Change Analysis', 'inferred', $inferredSummary),
+            $this->section('recommendations', 'Recommendations', 'recommended', $recommendedSummary),
+            $this->section('appendix', 'Appendix / Raw Sources / Audit Trail', 'observed', [
+                'job_runs' => $data['job_runs'],
+                'narrative' => $narrative,
+            ]),
+        ];
+
+        return [
+            'meta' => [
+                ...$data['meta'],
+                'template' => [
+                    'slug' => $template?->slug ?? $templateSlug,
+                    'name' => $template?->name ?? Str::headline(str_replace('-', ' ', $templateSlug)),
+                    'description' => $template?->description,
+                ],
+                'evidence_mode' => $strictEvidence ? 'strictly_evidence_based' : 'assisted',
+            ],
+            'narrative' => $narrative,
+            'sections' => $sections,
+            'exports' => [
+                'json' => "/api/metis/projects/{$project->id}/report/json?template={$templateSlug}",
+                'html' => "/api/metis/projects/{$project->id}/report/html?template={$templateSlug}",
+                'pdf' => "/api/metis/projects/{$project->id}/report/pdf?template={$templateSlug}",
+            ],
+        ];
+    }
+
+    public function generateHtml(MetisProject $project, ?string $aiSummary = null, array $options = []): string
+    {
+        $templateSlug = $options['template'] ?? 'metis-technical-recon';
+        $payload = $this->buildTemplateReport($project, $templateSlug, $options);
+        $stats = $this->generateJson($project, $options)['statistics'];
 
         $findingsHtml = '';
-        foreach ($findings as $f) {
-            $severityClass = match($f['severity']) {
+        foreach ($this->generateJson($project, $options)['findings'] as $finding) {
+            $severityClass = match ($finding['severity']) {
                 'critical' => '#ff4444',
-                'high'     => '#ff8800',
-                'medium'   => '#ffcc00',
-                'low'      => '#44aaff',
-                default    => '#888',
+                'high' => '#ff8800',
+                'medium' => '#ffcc00',
+                'low' => '#44aaff',
+                default => '#888',
             };
+
             $findingsHtml .= "<tr>
-                <td>{$f['id']}</td>
-                <td><span style='color:{$severityClass};font-weight:bold;'>{$f['severity']}</span></td>
-                <td>" . htmlspecialchars($f['title']) . "</td>
-                <td>{$f['type']}</td>
-                <td>{$f['status']}</td>
+                <td>".htmlspecialchars((string) $finding['id'])."</td>
+                <td><span style='color:{$severityClass};font-weight:bold;'>".htmlspecialchars((string) $finding['severity'])."</span></td>
+                <td>".htmlspecialchars((string) $finding['title'])."</td>
+                <td>".htmlspecialchars((string) $finding['type'])."</td>
+                <td>".htmlspecialchars((string) $finding['status'])."</td>
             </tr>";
         }
 
-        $intelHtml = '';
-        foreach ($intelHits as $hit) {
-            $intelHtml .= "<tr>
-                <td>" . htmlspecialchars($hit['provider_type']) . "</td>
-                <td>" . htmlspecialchars($hit['hit_type']) . "</td>
-                <td>" . htmlspecialchars($hit['severity']) . "</td>
-                <td>" . htmlspecialchars($hit['title']) . "</td>
-            </tr>";
-        }
+        $narrative = $aiSummary ?: ($payload['narrative']['content'] ?? null);
+        $sectionHtml = collect($payload['sections'])->map(function (array $section) {
+            return "<div class='section'>
+                <h2>".htmlspecialchars($section['title'])."</h2>
+                <pre>".htmlspecialchars(json_encode($section['content'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES))."</pre>
+            </div>";
+        })->implode('');
 
-        $aiSection = $aiSummary
-            ? "<div class='section'><h2>AI Executive Brief</h2><div class='ai-summary'>" . nl2br(htmlspecialchars($aiSummary)) . "</div></div>"
+        $aiSection = $narrative
+            ? "<div class='section'><h2>Executive Brief</h2><div class='ai-summary'>".nl2br(htmlspecialchars($narrative))."</div></div>"
             : '';
 
         return <<<HTML
@@ -141,43 +331,38 @@ class ReportService
 <style>
   body { font-family: 'Segoe UI', Arial, sans-serif; background: #0d1117; color: #c9d1d9; margin: 0; padding: 32px; }
   h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 12px; }
-  h2 { color: #79c0ff; margin-top: 32px; }
-  .section { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 24px; margin-bottom: 24px; }
-  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  h2 { color: #79c0ff; margin-top: 0; }
+  .section { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 24px; margin-bottom: 24px; overflow: hidden; }
+  .stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
   .stat-card { background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 16px; text-align: center; }
   .stat-value { font-size: 2em; font-weight: bold; color: #58a6ff; }
   .stat-label { font-size: 0.85em; color: #8b949e; margin-top: 4px; }
   table { width: 100%; border-collapse: collapse; }
   th { background: #21262d; color: #8b949e; padding: 8px 12px; text-align: left; font-size: 0.85em; text-transform: uppercase; }
   td { padding: 8px 12px; border-bottom: 1px solid #21262d; font-size: 0.9em; }
-  tr:last-child td { border-bottom: none; }
   .ai-summary { background: #0d1117; border-left: 3px solid #58a6ff; padding: 16px; border-radius: 4px; line-height: 1.6; }
   .meta { color: #8b949e; font-size: 0.85em; margin-bottom: 24px; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; }
+  pre { white-space: pre-wrap; word-break: break-word; background: #0d1117; padding: 16px; border-radius: 6px; border: 1px solid #21262d; }
 </style>
 </head>
 <body>
 <h1>Metis Security Report</h1>
 <div class="meta">
-  Project: <strong style="color:#c9d1d9">{$project->name}</strong> |
-  Client: {$project->client} |
-  Generated: {$now}
+  Template: {$this->escape($payload['meta']['template']['name'] ?? 'Metis Technical Recon Report')} |
+  Project: <strong style="color:#c9d1d9">{$this->escape($project->name)}</strong> |
+  Client: {$this->escape($project->client ?: '-')} |
+  Generated: {$this->escape($payload['meta']['generated_at'])}
 </div>
-
 {$aiSection}
-
 <div class="section">
   <h2>Attack Surface Statistics</h2>
   <div class="stat-grid">
     <div class="stat-card"><div class="stat-value">{$stats['total_domains']}</div><div class="stat-label">Total Domains</div></div>
     <div class="stat-card"><div class="stat-value">{$stats['live_hosts']}</div><div class="stat-label">Live Hosts</div></div>
     <div class="stat-card"><div class="stat-value">{$stats['total_urls']}</div><div class="stat-label">Historical URLs</div></div>
-    <div class="stat-card"><div class="stat-value" style="color:#ff4444">{$stats['critical_findings']}</div><div class="stat-label">Critical Findings</div></div>
-    <div class="stat-card"><div class="stat-value" style="color:#ff8800">{$stats['high_findings']}</div><div class="stat-label">High Findings</div></div>
-    <div class="stat-card"><div class="stat-value">{$stats['intel_hits']}</div><div class="stat-label">Intel Hits</div></div>
+    <div class="stat-card"><div class="stat-value">{$stats['infra_groups']}</div><div class="stat-label">Infra Groups</div></div>
   </div>
 </div>
-
 <div class="section">
   <h2>Findings</h2>
   <table>
@@ -185,111 +370,125 @@ class ReportService
     <tbody>{$findingsHtml}</tbody>
   </table>
 </div>
-
-<div class="section">
-  <h2>Scope</h2>
-  <p><strong>Root Domains:</strong> {$scopeRootDomains}</p>
-  <p><strong>IP Ranges:</strong> {$scopeIpRanges}</p>
-  <p><strong>GitHub Orgs:</strong> {$scopeGithubOrgs}</p>
-</div>
-
-<div class="section">
-  <h2>Threat Intel</h2>
-  <table>
-    <thead><tr><th>Provider</th><th>Type</th><th>Severity</th><th>Title</th></tr></thead>
-    <tbody>{$intelHtml}</tbody>
-  </table>
-</div>
-
-<footer style="margin-top:48px; text-align:center; color:#484f58; font-size:0.8em;">
-  Generated by Metis Command Center · Blackstorm · Authorized Security Assessment Only
-</footer>
+{$sectionHtml}
 </body>
 </html>
 HTML;
     }
 
-    public function generatePdf(MetisProject $project, ?string $aiSummary = null): string
+    public function generatePdf(MetisProject $project, ?string $aiSummary = null, array $options = []): string
     {
-        $data = $this->generateJson($project);
+        $templateSlug = $options['template'] ?? 'metis-technical-recon';
+        $payload = $this->buildTemplateReport($project, $templateSlug, $options);
+
         $pdf = new \FPDF();
-        $pdf->SetTitle($this->pdfText('Metis Report - '.$project->name));
+        $pdf->SetTitle($this->pdfText(($payload['meta']['template']['name'] ?? 'Metis Report').' - '.$project->name));
         $pdf->SetAuthor('Metis Command Center');
         $pdf->SetAutoPageBreak(true, 15);
         $pdf->AddPage();
 
         $pdf->SetFont('Arial', 'B', 18);
-        $pdf->Cell(0, 10, $this->pdfText('Metis Security Report'), 0, 1);
+        $pdf->Cell(0, 10, $this->pdfText($payload['meta']['template']['name'] ?? 'Metis Security Report'), 0, 1);
 
         $pdf->SetFont('Arial', '', 11);
         $pdf->MultiCell(0, 6, $this->pdfText(sprintf(
             "Project: %s\nClient: %s\nGenerated: %s",
             $project->name,
             $project->client ?: '-',
-            now()->toIso8601String()
+            $payload['meta']['generated_at']
         )));
         $pdf->Ln(2);
 
-        if ($aiSummary) {
+        $brief = $aiSummary ?: ($payload['narrative']['content'] ?? null);
+        if ($brief) {
             $pdf->SetFont('Arial', 'B', 13);
-            $pdf->Cell(0, 8, $this->pdfText('AI Executive Brief'), 0, 1);
+            $pdf->Cell(0, 8, $this->pdfText('Executive Brief'), 0, 1);
             $pdf->SetFont('Arial', '', 10);
-            $pdf->MultiCell(0, 5, $this->pdfText($aiSummary));
+            $pdf->MultiCell(0, 5, $this->pdfText($brief));
             $pdf->Ln(2);
         }
 
-        $pdf->SetFont('Arial', 'B', 13);
-        $pdf->Cell(0, 8, $this->pdfText('Statistics'), 0, 1);
-        $pdf->SetFont('Arial', '', 10);
-        foreach ($data['statistics'] as $label => $value) {
-            $pdf->Cell(70, 6, $this->pdfText(ucwords(str_replace('_', ' ', $label))), 0, 0);
-            $pdf->Cell(0, 6, $this->pdfText((string) $value), 0, 1);
-        }
-        $pdf->Ln(2);
-
-        $pdf->SetFont('Arial', 'B', 13);
-        $pdf->Cell(0, 8, $this->pdfText('Scope'), 0, 1);
-        $pdf->SetFont('Arial', '', 10);
-        foreach (['root_domains', 'ip_ranges', 'github_orgs', 'email_domains'] as $key) {
-            $value = implode(', ', $data['scope'][$key] ?? []);
-            $pdf->MultiCell(0, 5, $this->pdfText(ucwords(str_replace('_', ' ', $key)).': '.($value ?: '-')));
-        }
-        $pdf->Ln(2);
-
-        $pdf->SetFont('Arial', 'B', 13);
-        $pdf->Cell(0, 8, $this->pdfText('Findings'), 0, 1);
-        $pdf->SetFont('Arial', '', 10);
-        if (collect($data['findings'])->isEmpty()) {
-            $pdf->Cell(0, 6, $this->pdfText('No findings recorded.'), 0, 1);
-        } else {
-            foreach (collect($data['findings'])->take(20) as $finding) {
-                $pdf->MultiCell(0, 5, $this->pdfText(sprintf(
-                    '[%s] %s (%s)',
-                    strtoupper((string) $finding['severity']),
-                    $finding['title'],
-                    $finding['status']
-                )));
-            }
-        }
-        $pdf->Ln(2);
-
-        $pdf->SetFont('Arial', 'B', 13);
-        $pdf->Cell(0, 8, $this->pdfText('Threat Intel'), 0, 1);
-        $pdf->SetFont('Arial', '', 10);
-        if (collect($data['intel_hits'])->isEmpty()) {
-            $pdf->Cell(0, 6, $this->pdfText('No intel hits recorded.'), 0, 1);
-        } else {
-            foreach (collect($data['intel_hits'])->take(20) as $hit) {
-                $pdf->MultiCell(0, 5, $this->pdfText(sprintf(
-                    '[%s] %s - %s',
-                    strtoupper((string) $hit['provider_type']),
-                    $hit['title'],
-                    $hit['summary'] ?: '-'
-                )));
-            }
+        foreach ($payload['sections'] as $section) {
+            $pdf->SetFont('Arial', 'B', 13);
+            $pdf->Cell(0, 8, $this->pdfText($section['title']), 0, 1);
+            $pdf->SetFont('Arial', '', 10);
+            $pdf->MultiCell(0, 5, $this->pdfText(json_encode($section['content'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)));
+            $pdf->Ln(2);
         }
 
         return $pdf->Output('S');
+    }
+
+    private function recommendedNextSteps(array $data): array
+    {
+        $steps = [];
+
+        if (collect($data['surface_map']['domains'])->contains(fn ($domain) => ! empty($domain['dns_summary']['mx_hosts'] ?? []))) {
+            $steps[] = 'Found MX/email infrastructure, so HIBP domain exposure review is available.';
+        }
+
+        if (collect($data['surface_map']['hosts'])->contains(fn ($host) => ($host['classification'] ?? null) === 'admin/login')) {
+            $steps[] = 'Admin/login surfaces were observed and should be reviewed with safe validation.';
+        }
+
+        if (collect($data['infra_groups'])->where('type', 'shared_ip')->isNotEmpty()) {
+            $steps[] = 'Multiple assets share the same IP and should be reviewed as a grouped infrastructure cluster.';
+        }
+
+        if (collect($data['infra_groups'])->where('type', 'shared_certificate')->isNotEmpty()) {
+            $steps[] = 'Certificate reuse suggests related assets and should be reviewed for shared ownership and blast radius.';
+        }
+
+        if (collect($data['surface_map']['hosts'])->contains(fn ($host) => ! empty($host['ports'] ?? []))) {
+            $steps[] = 'Observed exposed services can be followed by safe vulnerability assessment and remediation validation.';
+        }
+
+        return $steps;
+    }
+
+    private function deterministicNarrative(array $observed, array $inferred, array $recommended): string
+    {
+        return implode("\n", [
+            'Observed',
+            json_encode($observed, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+            '',
+            'Inferred',
+            json_encode($inferred, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+            '',
+            'Recommended',
+            json_encode($recommended, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES),
+        ]);
+    }
+
+    private function section(string $key, string $title, string $classification, mixed $content): array
+    {
+        return [
+            'key' => $key,
+            'title' => $title,
+            'classification' => $classification,
+            'content' => $content,
+        ];
+    }
+
+    private function overrideMeta(?MetisEmergencyOverride $override): ?array
+    {
+        if (! $override) {
+            return null;
+        }
+
+        return [
+            'id' => $override->id,
+            'run_type' => $override->run_type,
+            'reason' => $override->reason,
+            'target_summary' => $override->target_summary,
+            'used_at' => $override->used_at?->toIso8601String(),
+            'status' => $override->status,
+        ];
+    }
+
+    private function escape(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
     private function pdfText(string $value): string

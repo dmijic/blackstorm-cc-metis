@@ -13,6 +13,9 @@ Autorizirana platforma za Recon & Attack Surface Management (ASM).
 | Tools sidecar | Go (subfinder · httpx · naabu) |
 | Proxy | nginx |
 
+Detaljna Metis dokumentacija:
+- [`README-METIS.md`](./README-METIS.md) — arhitektura, workflow engine, module catalog, external services, guardrails, reports, script engine i production deploy napomene
+
 ## Preduvjeti
 
 - Docker + Docker Compose v2
@@ -209,7 +212,7 @@ curl http://localhost:8000/api/me \
 ## Metis workflow
 
 ```
-Projects → Scope → Domain Verification → Wizard Pipeline → Entities → Findings → Report
+Projects → Scope → Verification → Smart Wizard / Workflow Engine → Entities → Findings → Report
 ```
 
 ### Korak po korak
@@ -218,8 +221,8 @@ Projects → Scope → Domain Verification → Wizard Pipeline → Entities → 
 2. **Definiraj scope** — root domene, IP rangevi, GitHub orgs, email domene
 3. **Verificiraj domene** — DNS TXT record ili `/.well-known/metis-verification/<token>`
 4. **Konfiguriraj konektore po potrebi** — Settings → External Services za GitHub, HIBP, Shodan, Slack, Teams, Jira, n8n i ostale integracije; Settings → AI Providers za LLM providere
-5. **Pokreni wizard** — DNS · CT · Subfinder · GitHub hints · HTTP probe · Port scan · Directory Discovery · opcionalni Wayback
-6. **Pregledaj lanac rezultata** — wizard prenosi domene → DNS/IP resolution → live hostove → aktivne korake
+5. **Pokreni Smart Wizard** — workflow-driven lanac: passive DNS · CT · RDAP/WHOIS · GitHub hints · search recon · DNS/IP enrichment · HTTP probe · TLS · port scan · banner/service fingerprint · optional Wayback · CTI/HIBP · attack surface map · report export
+6. **Pregledaj lanac rezultata** — workflow run context prenosi varijable i evidence iz jednog koraka u idući; optional nodeovi se mogu uključiti/isključiti, a isti workflow run može se ponovno iskoristiti kao resume source
 7. **Pretraži entitete** — domene, hostovi i URL-ovi s DNS zapisima, IP adresama i evidence prikazom
 8. **Pokreni module** — HIBP, CTI, IAM audit, remediation validation i ostale sigurne module po potrebi
 9. **Logiraj findinge** — severity, type, confidence, evidence
@@ -269,6 +272,16 @@ Konfiguriraju se kroz Settings → External Services:
 | HIBP | Breach | Email domain breach lookup |
 | GitHub | Paste | Code search po ključnim riječima |
 
+## Arhitektura i deploy
+
+- Frontend koristi relativni `/api` pristup; u lokalnom developmentu Vite proxy prosljeđuje `/api` i `/sanctum` prema backendu.
+- Docker portovi su loopback-bound (`127.0.0.1`) tako da ostaju kompatibilni s host-level nginx reverse proxy modelom.
+- Production ingress ostaje na host nginxu:
+  - `https://blackstorm.dariomijic.com/` → `127.0.0.1:5173`
+  - `https://blackstorm.dariomijic.com/api` → `127.0.0.1:8000`
+  - `https://blackstorm.dariomijic.com/sanctum` → `127.0.0.1:8000`
+- DB i Redis nisu javno izloženi izvan loopbacka.
+
 ## Docker kontejneri
 
 | Kontejner | Uloga |
@@ -282,3 +295,30 @@ Konfiguriraju se kroz Settings → External Services:
 | `proxy` | nginx reverse proxy |
 | `go-tools` | Subfinder / httpx / naabu HTTP API |
 | `mailhog` | SMTP catch-all za razvoj |
+
+## Obavezne migracije i env promjene
+
+Nakon pulla novog koda pokreni:
+
+```bash
+docker compose -f infra/docker/docker-compose.yml exec -T api php artisan migrate --force
+docker compose -f infra/docker/docker-compose.yml exec -T api php artisan db:seed --force
+```
+
+Frontend env:
+- `apps/web/.env.example` sada koristi `VITE_API_URL=/api`
+- lokalni Vite proxy koristi `VITE_PROXY_TARGET=http://127.0.0.1:8000`
+- Docker web servis postavlja `VITE_PROXY_TARGET=http://proxy`
+
+Docker host port override:
+- ako host već koristi `5432`, pokreni compose s `POSTGRES_HOST_PORT=5433`
+- isto vrijedi i za ostale loopback portove: `REDIS_HOST_PORT`, `MAILHOG_SMTP_HOST_PORT`, `MAILHOG_UI_HOST_PORT`, `WEB_HOST_PORT`, `API_HOST_PORT`
+
+Backend migracije uključuju:
+- workflow engine tablice
+- script engine tablice
+- emergency override tablicu
+- report templates
+- infrastructure grouping tablice
+
+Za detaljan opis novih workflow, script i report capabilityja pogledaj [`README-METIS.md`](./README-METIS.md).

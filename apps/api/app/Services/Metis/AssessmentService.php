@@ -30,9 +30,10 @@ class AssessmentService
         $results = [];
         $findingCount = 0;
         $blocked = 0;
+        $override = $run->override;
 
         foreach ($targets as $target) {
-            if (! $scopeVerifier->isTargetInAuthorizedScope($project->id, $target)) {
+            if (! $scopeVerifier->isTargetAllowed($project->id, $target, $run->creator, $override, $run->type)) {
                 $blocked++;
                 continue;
             }
@@ -100,9 +101,10 @@ class AssessmentService
         $results = [];
         $findingCount = 0;
         $blocked = 0;
+        $override = $run->override;
 
         foreach ($targets as $target) {
-            if (! $scopeVerifier->isTargetInAuthorizedScope($project->id, $target)) {
+            if (! $scopeVerifier->isTargetAllowed($project->id, $target, $run->creator, $override, $run->type)) {
                 $blocked++;
                 continue;
             }
@@ -163,12 +165,13 @@ class AssessmentService
 
         $resolved = [];
         $persisting = [];
+        $override = $run->override;
 
         foreach ($findings as $finding) {
             $evidence = $finding->evidence_json ?? [];
             $target = $evidence['target'] ?? null;
 
-            if (! $target || ! $scopeVerifier->isTargetInAuthorizedScope($project->id, $target)) {
+            if (! $target || ! $scopeVerifier->isTargetAllowed($project->id, $target, $run->creator, $override, $run->type)) {
                 continue;
             }
 
@@ -228,9 +231,10 @@ class AssessmentService
         $results = [];
         $findingCount = 0;
         $blocked = 0;
+        $override = $run->override;
 
         foreach ($targets as $target) {
-            if (! $scopeVerifier->isTargetInAuthorizedScope($project->id, $target)) {
+            if (! $scopeVerifier->isTargetAllowed($project->id, $target, $run->creator, $override, $run->type)) {
                 $blocked++;
                 continue;
             }

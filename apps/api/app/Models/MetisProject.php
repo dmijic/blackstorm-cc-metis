@@ -81,4 +81,34 @@ class MetisProject extends Model
     {
         return $this->hasMany(MetisIntelHit::class, 'project_id');
     }
+
+    public function workflows(): HasMany
+    {
+        return $this->hasMany(MetisWorkflow::class, 'project_id');
+    }
+
+    public function workflowRuns(): HasMany
+    {
+        return $this->hasMany(MetisWorkflowRun::class, 'project_id');
+    }
+
+    public function scriptTemplates(): HasMany
+    {
+        return $this->hasMany(MetisScriptTemplate::class, 'project_id');
+    }
+
+    public function scriptRuns(): HasMany
+    {
+        return $this->hasMany(MetisScriptRun::class, 'project_id');
+    }
+
+    public function overrides(): HasMany
+    {
+        return $this->hasMany(MetisEmergencyOverride::class, 'project_id');
+    }
+
+    public function infraGroups(): HasMany
+    {
+        return $this->hasMany(MetisInfraGroup::class, 'project_id');
+    }
 }

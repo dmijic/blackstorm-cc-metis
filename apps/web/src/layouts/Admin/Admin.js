@@ -20,6 +20,13 @@ function Admin() {
   const navigate = useNavigate();
   const mainPanelRef = React.useRef(null);
   const { user, logout } = useAuth();
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(() => {
+    if (typeof window === "undefined") {
+      return false;
+    }
+
+    return window.localStorage.getItem("metis.sidebar.collapsed") === "1";
+  });
   const [sidebarOpened, setsidebarOpened] = React.useState(
     document.documentElement.className.indexOf("nav-open") !== -1
   );
@@ -77,6 +84,17 @@ function Admin() {
   }, []);
 
   React.useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(
+      "metis.sidebar.collapsed",
+      sidebarCollapsed ? "1" : "0"
+    );
+  }, [sidebarCollapsed]);
+
+  React.useEffect(() => {
     document.documentElement.scrollTop = 0;
     document.scrollingElement.scrollTop = 0;
     if (mainPanelRef.current) {
@@ -94,6 +112,15 @@ function Admin() {
     document.documentElement.classList.remove("nav-open");
     setsidebarOpened(false);
   }, []);
+
+  const toggleSidebarCollapse = React.useCallback(() => {
+    if (window.innerWidth < 992) {
+      toggleSidebar();
+      return;
+    }
+
+    setSidebarCollapsed((current) => !current);
+  }, [toggleSidebar]);
 
   const getBrandText = (path) => {
     const activeRoute = routes.find((route) => {
@@ -115,8 +142,13 @@ function Admin() {
     <BackgroundColorContext.Consumer>
       {({ color }) => (
         <React.Fragment>
-          <div className="wrapper">
+          <div
+            className={`wrapper metis-admin-shell${
+              sidebarCollapsed ? " sidebar-collapsed" : ""
+            }`}
+          >
             <Sidebar
+              collapsed={sidebarCollapsed}
               closeSidebar={closeSidebar}
               routes={routes}
               logo={{
@@ -124,6 +156,7 @@ function Admin() {
                 text: "Metis",
                 imgSrc: logo,
               }}
+              toggleSidebarCollapse={toggleSidebarCollapse}
               toggleSidebar={toggleSidebar}
             />
             {sidebarOpened && (
@@ -142,7 +175,9 @@ function Admin() {
                 brandText={getBrandText(location.pathname)}
                 isLoggingOut={isLoggingOut}
                 onLogout={handleLogout}
+                sidebarCollapsed={sidebarCollapsed}
                 toggleSidebar={toggleSidebar}
+                toggleSidebarCollapse={toggleSidebarCollapse}
                 sidebarOpened={sidebarOpened}
                 user={user}
               />

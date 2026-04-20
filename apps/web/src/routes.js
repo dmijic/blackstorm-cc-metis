@@ -18,6 +18,9 @@ import MetisRuns        from "views/Metis/MetisRuns.js";
 import MetisFindings    from "views/Metis/MetisFindings.js";
 import MetisReport      from "views/Metis/MetisReport.js";
 import MetisModules     from "views/Metis/MetisModules.js";
+import MetisWorkflows   from "views/Metis/MetisWorkflows.js";
+import MetisScripts     from "views/Metis/MetisScripts.js";
+import MetisOverrides   from "views/Metis/MetisOverrides.js";
 import MetisAiProviders from "views/Metis/MetisAiProviders.js";
 import MetisExternalServices from "views/Metis/MetisExternalServices.js";
 
@@ -52,6 +55,9 @@ const routes = [
   { path: "/metis/projects/:id/entities/urls",    route: "metis/projects/:id/entities/urls",    name: "URLs",    component: <MetisEntities />, hidden: true },
   { path: "/metis/projects/:id/runs",     route: "metis/projects/:id/runs",     name: "Runs",      component: <MetisRuns />,      hidden: true },
   { path: "/metis/projects/:id/modules",  route: "metis/projects/:id/modules",  name: "Modules",   component: <MetisModules />,   hidden: true },
+  { path: "/metis/projects/:id/workflows", route: "metis/projects/:id/workflows", name: "Workflows", component: <MetisWorkflows />, hidden: true },
+  { path: "/metis/projects/:id/scripts", route: "metis/projects/:id/scripts", name: "Scripts", component: <MetisScripts />, hidden: true },
+  { path: "/metis/projects/:id/overrides", route: "metis/projects/:id/overrides", name: "Overrides", component: <MetisOverrides />, hidden: true },
   { path: "/metis/projects/:id/findings", route: "metis/projects/:id/findings", name: "Findings",  component: <MetisFindings />,  hidden: true },
   { path: "/metis/projects/:id/report",   route: "metis/projects/:id/report",   name: "Report",    component: <MetisReport />,    hidden: true },
 

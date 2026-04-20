@@ -45,7 +45,7 @@ function AdminNavbar(props) {
   };
   return (
     <>
-      <Navbar className={classNames("navbar-absolute", color)} expand="lg">
+      <Navbar className={classNames("metis-sticky-navbar", color)} expand="lg">
         <Container fluid>
           <div className="navbar-wrapper">
             <div
@@ -59,6 +59,20 @@ function AdminNavbar(props) {
                 <span className="navbar-toggler-bar bar3" />
               </NavbarToggler>
             </div>
+            <Button
+              className="metis-sidebar-collapse-btn d-none d-lg-inline-flex"
+              color="secondary"
+              outline
+              size="sm"
+              onClick={props.toggleSidebarCollapse}
+              title={props.sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <i
+                className={`fas ${
+                  props.sidebarCollapsed ? "fa-angles-right" : "fa-angles-left"
+                }`}
+              />
+            </Button>
             <NavbarBrand href="#pablo" onClick={(e) => e.preventDefault()}>
               {props.brandText}
             </NavbarBrand>

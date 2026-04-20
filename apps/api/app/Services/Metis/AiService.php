@@ -83,6 +83,72 @@ PROMPT;
         return [];
     }
 
+    public function groundedInterpretation(
+        string $title,
+        array $observed,
+        array $inferred = [],
+        array $recommended = [],
+        array $options = []
+    ): array {
+        $provider = $this->getDefaultProvider();
+        $safeObserved = $this->maskSecrets($observed);
+        $safeInferred = $this->maskSecrets($inferred);
+        $safeRecommended = $this->maskSecrets($recommended);
+
+        if (! $provider) {
+            return [
+                'content' => $this->fallbackGroundedNarrative($title, $safeObserved, $safeInferred, $safeRecommended),
+                'observed' => $safeObserved,
+                'inferred' => $safeInferred,
+                'recommended' => $safeRecommended,
+                'meta' => [
+                    'provider' => null,
+                    'model' => null,
+                    'grounded' => true,
+                    'mode' => 'fallback',
+                ],
+            ];
+        }
+
+        $prompt = <<<PROMPT
+You are an evidence-grounded security reporting assistant.
+
+Task title: {$title}
+
+Rules:
+- Only use facts from the OBSERVED section as observed facts.
+- You may use the INFERRED section only as explicitly labeled inference.
+- Keep RECOMMENDED as next steps, not facts.
+- Do not invent data, counts, affected assets, providers, or incidents.
+- Return plain text with exactly these section headers:
+Observed
+Inferred
+Recommended
+
+OBSERVED:
+{$this->prettyJson($safeObserved)}
+
+INFERRED:
+{$this->prettyJson($safeInferred)}
+
+RECOMMENDED:
+{$this->prettyJson($safeRecommended)}
+PROMPT;
+
+        return [
+            'content' => $this->chat($provider, $prompt),
+            'observed' => $safeObserved,
+            'inferred' => $safeInferred,
+            'recommended' => $safeRecommended,
+            'meta' => [
+                'provider' => $provider->provider,
+                'model' => $provider->model,
+                'grounded' => true,
+                'mode' => $options['mode'] ?? 'interpretation',
+            ],
+        ];
+    }
+
     private function chat(MetisAiProvider $provider, string $prompt): string
     {
         try {
@@ -165,5 +231,49 @@ PROMPT;
     private function jsonSafe(array $data): string
     {
         return implode(', ', array_slice($data, 0, 10));
+    }
+
+    private function prettyJson(array $data): string
+    {
+        return json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) ?: '{}';
+    }
+
+    private function fallbackGroundedNarrative(string $title, array $observed, array $inferred, array $recommended): string
+    {
+        $lines = [$title, '', 'Observed'];
+
+        foreach ($this->flattenForNarrative($observed) as $line) {
+            $lines[] = '- '.$line;
+        }
+
+        $lines[] = '';
+        $lines[] = 'Inferred';
+        foreach ($this->flattenForNarrative($inferred) as $line) {
+            $lines[] = '- '.$line;
+        }
+
+        $lines[] = '';
+        $lines[] = 'Recommended';
+        foreach ($this->flattenForNarrative($recommended) as $line) {
+            $lines[] = '- '.$line;
+        }
+
+        return implode("\n", $lines);
+    }
+
+    private function flattenForNarrative(array $payload): array
+    {
+        $lines = [];
+
+        foreach ($payload as $key => $value) {
+            if (is_array($value)) {
+                $lines[] = sprintf('%s: %s', (string) $key, json_encode($value, JSON_UNESCAPED_SLASHES));
+                continue;
+            }
+
+            $lines[] = sprintf('%s: %s', (string) $key, (string) $value);
+        }
+
+        return $lines === [] ? ['No data provided.'] : $lines;
     }
 }

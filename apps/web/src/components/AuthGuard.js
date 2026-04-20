@@ -22,7 +22,7 @@ function AuthGuard() {
     setStatus("checking");
     setErrorMessage("");
 
-    apiRequest("/api/me")
+    apiRequest("/me")
       .then((payload) => {
         if (ignore) {
           return;

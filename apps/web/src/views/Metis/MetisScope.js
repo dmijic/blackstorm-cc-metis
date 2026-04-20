@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from 'contexts/AuthContext';
-import { getScope, updateScope, initiateVerify, checkVerify } from 'api/metisApi';
+import { getScope, updateScope, initiateVerify, checkVerify, deleteVerify } from 'api/metisApi';
 import {
   Row, Col, Card, CardBody, CardHeader, Button, Input, Badge, Spinner,
   Alert, Nav, NavItem, NavLink, TabContent, TabPane,
@@ -69,6 +69,7 @@ export default function MetisScope() {
   const [verifyMethod, setVerifyMethod] = useState('dns_txt');
   const [verifyResult, setVerifyResult] = useState(null);
   const [checking,     setChecking]     = useState(null);
+  const [deleting,     setDeleting]     = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -123,6 +124,24 @@ export default function MetisScope() {
       alert('Check failed: ' + e.message);
     }
     setChecking(null);
+  };
+
+  const removeVerification = async (verification) => {
+    if (!window.confirm(`Delete verification for ${verification.domain}?`)) {
+      return;
+    }
+
+    setDeleting(verification.id);
+    try {
+      await deleteVerify(id, verification.id, token);
+      if (verifyResult?.data?.id === verification.id) {
+        setVerifyResult(null);
+      }
+      await load();
+    } catch (e) {
+      alert('Delete failed: ' + e.message);
+    }
+    setDeleting(null);
   };
 
   if (loading) return <div className="content" style={{ textAlign: 'center', padding: 60 }}><Spinner color="info" /></div>;
@@ -255,16 +274,26 @@ export default function MetisScope() {
                         <td style={{ padding: '10px 16px' }}><VerificationBadge status={v.status} /></td>
                         <td style={{ padding: '10px 16px', fontSize: 11, color: '#555' }}>{v.verified_at?.slice(0, 16) || '—'}</td>
                         <td style={{ padding: '10px 16px' }}>
-                          {v.status !== 'verified' && (
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {v.status !== 'verified' && (
+                              <Button
+                                size="sm" color="info" outline
+                                onClick={() => runCheck(v)}
+                                disabled={checking === v.id}
+                                style={{ fontSize: 11 }}
+                              >
+                                {checking === v.id ? <Spinner size="sm" /> : 'Check Now'}
+                              </Button>
+                            )}
                             <Button
-                              size="sm" color="info" outline
-                              onClick={() => runCheck(v)}
-                              disabled={checking === v.id}
+                              size="sm" color="danger" outline
+                              onClick={() => removeVerification(v)}
+                              disabled={deleting === v.id}
                               style={{ fontSize: 11 }}
                             >
-                              {checking === v.id ? <Spinner size="sm" /> : 'Check Now'}
+                              {deleting === v.id ? <Spinner size="sm" /> : 'Delete'}
                             </Button>
-                          )}
+                          </div>
                         </td>
                       </tr>
                     ))}

@@ -20,6 +20,7 @@ use App\Jobs\Metis\WizardPipelineJob;
 use App\Models\MetisAuditLog;
 use App\Models\MetisJobRun;
 use App\Models\MetisProject;
+use App\Services\Metis\EmergencyOverrideService;
 use App\Services\Metis\ScopeVerifierService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -54,11 +55,16 @@ class JobRunController extends Controller
         ]);
     }
 
-    public function dispatch(Request $request, MetisProject $project, ScopeVerifierService $scopeVerifier): JsonResponse
-    {
+    public function dispatch(
+        Request $request,
+        MetisProject $project,
+        ScopeVerifierService $scopeVerifier,
+        EmergencyOverrideService $overrideService
+    ): JsonResponse {
         $validated = $request->validate([
             'type'   => ['required', 'in:' . implode(',', self::ALLOWED_TYPES)],
             'params' => ['nullable', 'array'],
+            'override_id' => ['nullable', 'integer'],
         ]);
 
         $type   = $validated['type'];
@@ -83,13 +89,27 @@ class JobRunController extends Controller
             default      => null,
         };
 
-        if (in_array($type, ['http_probe', 'port_scan', 'directory_enum', 'vuln_assessment', 'iam_audit'], true)) {
+        $activeTypes = ['http_probe', 'port_scan', 'directory_enum', 'vuln_assessment', 'iam_audit', 'remediation_validation'];
+        $override = null;
+
+        if (in_array($type, $activeTypes, true)) {
             $targets = $type === 'http_probe'
                 ? ($params['hosts'] ?? [])
                 : ($params['hosts'] ?? [$params['host'] ?? null]);
 
+            if (! empty($validated['override_id']) && $targets !== []) {
+                $override = $overrideService->resolveForRun(
+                    project: $project,
+                    user: $request->user(),
+                    overrideId: (int) $validated['override_id'],
+                    runType: $type,
+                    targets: $targets,
+                    ip: $request->ip()
+                );
+            }
+
             if ($targets !== []) {
-                $blocked = $scopeVerifier->blockedTargets($project->id, $targets, $request->user());
+                $blocked = $scopeVerifier->blockedTargets($project->id, $targets, $request->user(), $override, $type);
 
                 if ($blocked !== []) {
                     return response()->json([
@@ -103,8 +123,21 @@ class JobRunController extends Controller
         $run = MetisJobRun::create([
             'project_id'  => $project->id,
             'created_by'  => $request->user()->id,
+            'override_id' => $override?->id,
             'type'        => $type,
-            'params_json' => $params,
+            'params_json' => array_filter([
+                ...$params,
+                'override_id' => $override?->id,
+            ], fn ($value) => $value !== null && $value !== []),
+            'meta_json' => $override
+                ? [
+                    'override' => [
+                        'id' => $override->id,
+                        'reason' => $override->reason,
+                        'target_summary' => $override->target_summary,
+                    ],
+                ]
+                : null,
             'status'      => 'queued',
         ]);
 
