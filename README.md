@@ -32,6 +32,7 @@ blackstorm-command-center/
 ├── infra/
 │   └── docker/
 │       ├── docker-compose.yml
+│       ├── docker-compose.dev.yml
 │       ├── go-tools/             Subfinder/httpx/naabu HTTP wrapper
 │       ├── php/Dockerfile
 │       └── proxy/default.conf
@@ -56,22 +57,25 @@ make first-run
 Skripta automatski:
 1. Kreira `.env` iz `.env.example` (ako postoji)
 2. Generira lokalni Laravel `APP_KEY` ako još nije postavljen
-3. Builda i podiže cijeli Docker stack
-4. Čeka da `api` container postane `healthy`
-5. Popravlja storage/cache permissione
-6. Čisti config i cache
-7. Pokreće sve migracije
-8. Seeda bazu
+3. Ako su lokalni portovi zauzeti, pomiče ih na prvi slobodan loopback port i zapisuje u `infra/docker/.env`
+4. Builda i podiže cijeli Docker stack
+5. Čeka da `api` container postane `healthy`
+6. Popravlja storage/cache permissione
+7. Čisti config i cache
+8. Pokreće sve migracije
+9. Seeda bazu
 
 ## URL-ovi (dev)
 
 | Servis | URL |
 |--------|-----|
-| Frontend (Vite) | http://localhost:5173 |
-| API (nginx) | http://localhost:8000 |
-| MailHog | http://localhost:8025 |
-| PostgreSQL | localhost:5432 |
-| Redis | localhost:6379 |
+| Frontend (Vite) | `http://localhost:5173` |
+| API (nginx) | `http://localhost:8000` |
+| MailHog | `http://localhost:8025` |
+| PostgreSQL | `localhost:5432` |
+| Redis | `localhost:6379` |
+
+Ako su ti ti portovi zauzeti, `./scripts/first_run.sh` ih automatski pomakne na prvi slobodan port i ispiše stvarne vrijednosti na kraju bootstrap procesa.
 
 ## Environment model
 
@@ -82,18 +86,21 @@ Lokalno:
 - `apps/web/.env`
 - `infra/docker/.env`
 
-Produkcija:
-- `/opt/metis-config/apps-api.env`
-- `/opt/metis-config/apps-web.env`
-- `/opt/metis-config/compose.env` (opcionalno, za compose varijable i host portove)
+Compose struktura:
+- `infra/docker/docker-compose.yml` je production-safe base
+- `infra/docker/docker-compose.dev.yml` je local-dev override
 
-Deploy skripta kopira server-only env fileove u repo neposredno prije `docker compose up`, pa nakon `git pull` nema ručnih hotfixeva po compose fileovima.
+Produkcija po defaultu radi iz samog repoa:
+- `deploy-prod.sh` koristi production-safe base compose
+- ako postoje opcionalni `/opt/metis-config/*` fileovi, skripta ih prekopira
+- ako ne postoje, skripta koristi postojeće ignored `.env` fileove u repou
+- ako ni oni ne postoje, skripta bootstrapa `.env` iz `.env.example` i sama generira `APP_KEY`
 
 Pravila:
 - `apps/api/.env`, `apps/web/.env` i `infra/docker/.env` nisu trackani
 - `APP_KEY` više nije hardcodan u compose fileovima
 - produkcijski frontend koristi relativni `/api`
-- produkcijski env fileovi ostaju izvan repoa
+- server-only env override je opcionalan, ne obavezan
 
 ---
 
@@ -197,7 +204,7 @@ make logs        # praćenje logova
 make migrate     # php artisan migrate
 make seed        # php artisan db:seed
 make test        # phpunit
-make deploy-prod # production deploy (server-only env + prod override)
+make deploy-prod # production deploy iz repo-contained safe compose modela
 make verify-hardening # sigurnosni sanity checkovi
 ```
 
@@ -362,13 +369,17 @@ Lokalni non-Docker frontend:
 
 Lokalni Docker dev:
 - `./scripts/first_run.sh`
-- compose koristi `apps/api/.env`, `apps/web/.env` i `infra/docker/.env`
+- compose koristi:
+  - `infra/docker/docker-compose.yml`
+  - `infra/docker/docker-compose.dev.yml`
+- runtime vrijednosti čita iz `apps/api/.env`, `apps/web/.env` i `infra/docker/.env`
 
 Produkcija:
-- source of truth su fileovi u `/opt/metis-config`
-- deploy koristi:
-  - `infra/docker/docker-compose.yml`
-  - `infra/docker/docker-compose.prod.yml`
+- deploy koristi samo `infra/docker/docker-compose.yml`
+- `/opt/metis-config/*` je opcionalan override, ne obavezan korak
+- bez `/opt` fallback je:
+  - postojeći ignored repo `.env` fileovi
+  - ili `.env.example` bootstrap ako `.env` još ne postoji
 - host nginx + certbot ostaju nepromijenjeni
 - frontend koristi relativni `/api`, ne `localhost`
 
@@ -391,16 +402,18 @@ metis-deploy
 Deploy skripta radi:
 1. `git fetch origin`
 2. `git reset --hard origin/main`
-3. kopira server-only env fileove iz `/opt/metis-config`
-4. podiže stack s base + prod compose fileovima
-5. pokreće migracije
-6. radi `php artisan optimize:clear`
-7. restarta worker i scheduler
-8. ispisuje `docker compose ps` i health provjere
+3. opcionalno kopira server-only env fileove iz `/opt/metis-config` ako postoje
+4. inače koristi postojeće repo `.env` fileove ili ih bootstrapa iz `.env.example`
+5. osigurava da `apps/api/.env` ima valjani `APP_KEY`
+6. podiže stack s production-safe base compose fileom
+7. pokreće migracije
+8. radi `php artisan optimize:clear`
+9. restarta worker i scheduler
+10. ispisuje `docker compose ps` i health provjere
 
-## Server-only config bootstrap
+## Opcionalni server-only override fileovi
 
-Na serveru pripremi barem:
+Ako želiš držati produkcijske env fileove izvan repoa, možeš ih opcionalno staviti u:
 
 ```bash
 sudo mkdir -p /opt/metis-config
@@ -410,7 +423,9 @@ sudo cp infra/docker/.env.example /opt/metis-config/compose.env
 sudo chmod 600 /opt/metis-config/apps-api.env /opt/metis-config/apps-web.env /opt/metis-config/compose.env
 ```
 
-Produkcijski minimum u `/opt/metis-config/apps-api.env`:
+To nije obavezno. Ako ti ti fileovi ne postoje, `deploy-prod.sh` koristi postojeće repo runtime `.env` fileove ili ih bootstrapa iz example fileova.
+
+Produkcijski minimum u `apps/api/.env` ili `/opt/metis-config/apps-api.env`:
 - `APP_ENV=production`
 - `APP_DEBUG=false`
 - `APP_URL=https://blackstorm.dariomijic.com`
@@ -419,7 +434,7 @@ Produkcijski minimum u `/opt/metis-config/apps-api.env`:
 - `SANCTUM_STATEFUL_DOMAINS=blackstorm.dariomijic.com`
 - `CORS_ALLOWED_ORIGINS=https://blackstorm.dariomijic.com`
 
-Produkcijski minimum u `/opt/metis-config/apps-web.env`:
+Produkcijski minimum u `apps/web/.env` ili `/opt/metis-config/apps-web.env`:
 - `VITE_API_URL=/api`
 
 ## APP_KEY rotacija
@@ -428,7 +443,7 @@ Produkcijski minimum u `/opt/metis-config/apps-web.env`:
 php -r 'echo "base64:".base64_encode(random_bytes(32)).PHP_EOL;'
 ```
 
-Zatim u `/opt/metis-config/apps-api.env`:
+Zatim u `apps/api/.env` ili `/opt/metis-config/apps-api.env`:
 - `APP_KEY=<novi_kljuc>`
 - `APP_PREVIOUS_KEYS=<stari_kljuc>` privremeno, dok ne ponovno spremiš sve enkriptirane integration secrets
 
@@ -447,7 +462,8 @@ Compose i secret hygiene sanity check:
 Ručno:
 
 ```bash
-docker compose -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.prod.yml config >/dev/null
+docker compose -f infra/docker/docker-compose.yml config >/dev/null
+docker compose -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.dev.yml config >/dev/null
 curl -fsS http://127.0.0.1:8000/api/health
 curl -fsSI http://127.0.0.1:5173
 ss -ltnp | grep -E ':(5173|8000|5432|6379|1025|8025)\s'

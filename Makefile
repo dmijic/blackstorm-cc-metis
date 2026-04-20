@@ -1,5 +1,5 @@
-COMPOSE = docker compose --project-directory . -f infra/docker/docker-compose.yml
-COMPOSE_PROD = docker compose --project-directory . -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.prod.yml
+COMPOSE = docker compose --project-directory . --env-file infra/docker/.env -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.dev.yml
+COMPOSE_PROD = docker compose --project-directory . --env-file infra/docker/.env -f infra/docker/docker-compose.yml
 
 .PHONY: up down logs migrate seed test first-run deploy-prod verify-hardening
 

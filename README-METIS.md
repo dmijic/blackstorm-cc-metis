@@ -209,15 +209,25 @@ cd blackstorm-command-center
 Ručni start:
 
 ```bash
-docker compose -f infra/docker/docker-compose.yml up -d --build
-docker compose -f infra/docker/docker-compose.yml exec -T api php artisan migrate --force
-docker compose -f infra/docker/docker-compose.yml exec -T api php artisan db:seed --force
+docker compose --project-directory . --env-file infra/docker/.env \
+  -f infra/docker/docker-compose.yml \
+  -f infra/docker/docker-compose.dev.yml \
+  up -d --build
+docker compose --project-directory . --env-file infra/docker/.env \
+  -f infra/docker/docker-compose.yml \
+  -f infra/docker/docker-compose.dev.yml \
+  exec -T api php artisan migrate --force
+docker compose --project-directory . --env-file infra/docker/.env \
+  -f infra/docker/docker-compose.yml \
+  -f infra/docker/docker-compose.dev.yml \
+  exec -T api php artisan db:seed --force
 ```
 
 Lokalni endpointi:
-- `http://127.0.0.1:5173`
-- `http://127.0.0.1:8000/api`
-- `http://127.0.0.1:8025`
+- defaultno `http://127.0.0.1:5173`
+- defaultno `http://127.0.0.1:8000/api`
+- defaultno `http://127.0.0.1:8025`
+- ako je host port zauzet, `./scripts/first_run.sh` ga automatski pomakne i ispiše stvarne URL-ove na kraju
 
 ## Production Notes
 
@@ -228,7 +238,8 @@ Bitno:
 - frontend koristi relativni `/api`, bez production `localhost` hardcodea
 - host nginx ostaje jedini javni ingress
 - `db`, `redis` i `mailhog` ostaju privatni ili loopback-bound
-- server-only env source of truth je izvan repoa: `/opt/metis-config`
+- production-safe compose base je u repou, bez potrebe za ručnim compose patchanjem na serveru
+- `/opt/metis-config` može postojati kao opcionalni override, ali nije preduvjet za deploy
 
 Preporučeni deploy koraci:
 
@@ -260,10 +271,15 @@ Obavezno nakon pulla:
 - `php artisan migrate --force`
 - `php artisan db:seed --force`
 
-Server-only env fileovi:
+Repo runtime env fileovi:
+- `apps/api/.env`
+- `apps/web/.env`
+- `infra/docker/.env`
+
+Opcionalni server-only override fileovi:
 - `/opt/metis-config/apps-api.env`
 - `/opt/metis-config/apps-web.env`
-- `/opt/metis-config/compose.env` (opcionalno)
+- `/opt/metis-config/compose.env`
 
 Frontend env:
 - `VITE_API_URL=/api`

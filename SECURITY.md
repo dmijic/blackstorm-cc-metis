@@ -2,15 +2,24 @@
 
 Ovaj dokument pokriva incident response, secret rotaciju, provjeru mrežne ekspozicije i održavanje production-safe deploy modela za `Blackstorm / Metis Command Center`.
 
-## Server-only config source of truth
+## Runtime config model
 
-Tracked repozitorij ne smije sadržavati runtime tajne. Produkcijski source of truth je izvan repoa:
+Tracked repozitorij ne smije sadržavati runtime tajne.
 
+Repo-side runtime fileovi:
+- `apps/api/.env`
+- `apps/web/.env`
+- `infra/docker/.env`
+
+Opcionalni server-only override fileovi:
 - `/opt/metis-config/apps-api.env`
 - `/opt/metis-config/apps-web.env`
-- `/opt/metis-config/compose.env` (opcionalno, za host portove i compose override varijable)
+- `/opt/metis-config/compose.env`
 
-Deploy skripta kopira te fileove u repo neposredno prije `docker compose up`.
+`deploy-prod.sh` radi i bez `/opt/metis-config/*`:
+- ako `/opt` fileovi postoje, koristi njih
+- ako ne postoje, koristi postojeće ignored repo `.env` fileove
+- ako ni oni ne postoje, bootstrapa iz `.env.example` i generira `APP_KEY`
 
 ## Incident response: leaked APP_KEY
 
@@ -23,7 +32,7 @@ Ako je `APP_KEY` procurio:
 php -r 'echo "base64:".base64_encode(random_bytes(32)).PHP_EOL;'
 ```
 
-3. U `/opt/metis-config/apps-api.env` postavi:
+3. U `apps/api/.env` ili `/opt/metis-config/apps-api.env` postavi:
    - `APP_KEY=<novi_kljuc>`
    - `APP_PREVIOUS_KEYS=<stari_kljuc>`
 4. Pokreni production deploy:
@@ -141,7 +150,7 @@ ss -ltnp | grep -E ':(6379|5432|1025|8025)\s'
 2. provjeri aktivni compose config:
 
 ```bash
-docker compose -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.prod.yml config
+docker compose -f infra/docker/docker-compose.yml config
 ```
 
 3. redeployaj produkcijski stack:
@@ -156,17 +165,28 @@ docker compose -f infra/docker/docker-compose.yml -f infra/docker/docker-compose
    - kada je mitigirano
    - izlazom iz `ss -ltnp` ili internim zapisom provjere
 
-## Održavanje server-only override fileova
+## Održavanje runtime override fileova
 
 Nemoj ručno uređivati tracked compose fileove na serveru.
 
-Umjesto toga održavaj samo:
+Repo default koji preživljava `git pull` je:
+- `infra/docker/docker-compose.yml` za production-safe deploy
+- `infra/docker/docker-compose.dev.yml` samo za lokalni development
+
+Održavaj jedan od ova dva modela:
+
+1. repo-side runtime `.env` fileove:
+- `apps/api/.env`
+- `apps/web/.env`
+- `infra/docker/.env`
+
+2. ili opcionalne server-only override fileove:
 
 - `/opt/metis-config/apps-api.env`
 - `/opt/metis-config/apps-web.env`
 - `/opt/metis-config/compose.env`
 
-Taj model preživljava `git pull` jer deploy skripta te fileove svaki put ponovno kopira u repo prije `docker compose up`.
+Oba modela preživljavaju `git pull` jer deploy skripta ne ovisi o ručnom patchanju compose fileova.
 
 ## Quick verification after deploy
 
