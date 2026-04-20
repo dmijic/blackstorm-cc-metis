@@ -3,7 +3,7 @@
  * All calls require auth token from AuthContext.
  */
 
-const BASE = import.meta.env.VITE_API_URL || '/api';
+import { buildApiUrl } from 'lib/apiBase';
 
 async function request(method, path, body, token) {
   const headers = {
@@ -12,7 +12,7 @@ async function request(method, path, body, token) {
   };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(buildApiUrl(path), {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,

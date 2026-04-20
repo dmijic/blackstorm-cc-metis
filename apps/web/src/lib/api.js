@@ -1,33 +1,8 @@
-const DEFAULT_API_BASE_URL = "/api";
+import { buildApiUrl, getApiBaseUrl } from "./apiBase";
 
 export const TOKEN_STORAGE_KEY = "bcc_token";
 export const USER_STORAGE_KEY = "bcc_user";
-export const API_BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  import.meta.env.VITE_API_BASE_URL ||
-  DEFAULT_API_BASE_URL;
-
-function buildUrl(path) {
-  if (path.startsWith("http://") || path.startsWith("https://")) {
-    return path;
-  }
-
-  const normalizedBase = API_BASE_URL.endsWith("/")
-    ? API_BASE_URL.slice(0, -1)
-    : API_BASE_URL;
-  let normalizedPath = path.startsWith("/") ? path : `/${path}`;
-
-  // Allow older callers to pass "/api/..." even when the configured base
-  // already points at "/api".
-  if (
-    normalizedPath.startsWith("/api/") &&
-    (normalizedBase === "/api" || normalizedBase.endsWith("/api"))
-  ) {
-    normalizedPath = normalizedPath.slice(4);
-  }
-
-  return `${normalizedBase}${normalizedPath}`;
-}
+export const API_BASE_URL = getApiBaseUrl();
 
 export function getStoredToken() {
   return window.localStorage.getItem(TOKEN_STORAGE_KEY);
@@ -83,7 +58,7 @@ export async function apiRequest(path, options = {}) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(buildUrl(path), {
+  const response = await fetch(buildApiUrl(path), {
     ...options,
     headers,
   });

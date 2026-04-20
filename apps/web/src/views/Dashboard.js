@@ -2,11 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from 'contexts/AuthContext';
 import { getProjects } from 'api/metisApi';
-
-const BASE = import.meta.env.VITE_API_URL || '/api';
+import { buildApiUrl } from 'lib/apiBase';
 
 async function apiFetch(path, token) {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(buildApiUrl(path), {
     headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
   });
   if (!res.ok) return null;

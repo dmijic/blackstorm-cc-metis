@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from 'contexts/AuthContext';
 import { getAiSummary, getReportJson, getReportTemplates, getWorkflowRuns } from 'api/metisApi';
+import { buildApiUrl } from 'lib/apiBase';
 import { Row, Col, Card, CardBody, CardHeader, Button, Badge, Spinner, Alert, Input } from 'reactstrap';
 
 const SEVERITY_COLORS = { critical: '#ff4444', high: '#ff8800', medium: '#ffcc00', low: '#44aaff', info: '#888' };
@@ -100,7 +101,6 @@ export default function MetisReport() {
 
   const downloadHtml = async () => {
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || '/api';
       const htmlParams = new URLSearchParams({
         template,
         ai_summary: aiSummary ? '1' : '0',
@@ -111,7 +111,7 @@ export default function MetisReport() {
         htmlParams.set('workflow_run_id', selectedWorkflowRunId);
       }
 
-      const response = await fetch(`${baseUrl}/metis/projects/${id}/report/html?${htmlParams.toString()}`, {
+      const response = await fetch(buildApiUrl(`/metis/projects/${id}/report/html?${htmlParams.toString()}`), {
         headers: {
           Accept: 'text/html',
           Authorization: `Bearer ${token}`,
@@ -133,7 +133,6 @@ export default function MetisReport() {
 
   const downloadPdf = async () => {
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || '/api';
       const pdfParams = new URLSearchParams({
         template,
         ai_summary: aiSummary ? '1' : '0',
@@ -144,7 +143,7 @@ export default function MetisReport() {
         pdfParams.set('workflow_run_id', selectedWorkflowRunId);
       }
 
-      const response = await fetch(`${baseUrl}/metis/projects/${id}/report/pdf?${pdfParams.toString()}`, {
+      const response = await fetch(buildApiUrl(`/metis/projects/${id}/report/pdf?${pdfParams.toString()}`), {
         headers: {
           Accept: 'application/pdf',
           Authorization: `Bearer ${token}`,

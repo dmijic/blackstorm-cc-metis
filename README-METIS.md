@@ -227,17 +227,21 @@ Bitno:
 - Docker servisi ostaju loopback-bound
 - frontend koristi relativni `/api`, bez production `localhost` hardcodea
 - host nginx ostaje jedini javni ingress
-- `db` i `redis` ostaju privatni
+- `db`, `redis` i `mailhog` ostaju privatni ili loopback-bound
+- server-only env source of truth je izvan repoa: `/opt/metis-config`
 
 Preporučeni deploy koraci:
 
 ```bash
 cd /srv/blackstorm-command-center
-git pull
-docker compose -f infra/docker/docker-compose.yml up -d --build
-docker compose -f infra/docker/docker-compose.yml exec -T api php artisan migrate --force
-docker compose -f infra/docker/docker-compose.yml exec -T api php artisan db:seed --force
-docker compose -f infra/docker/docker-compose.yml exec -T api php artisan optimize:clear
+./scripts/deploy-prod.sh
+```
+
+Opcionalni helper:
+
+```bash
+sudo ln -sf /srv/blackstorm-command-center/scripts/metis-deploy /usr/local/bin/metis-deploy
+metis-deploy
 ```
 
 ## Adding New Tool Wrappers Safely
@@ -256,10 +260,24 @@ Obavezno nakon pulla:
 - `php artisan migrate --force`
 - `php artisan db:seed --force`
 
+Server-only env fileovi:
+- `/opt/metis-config/apps-api.env`
+- `/opt/metis-config/apps-web.env`
+- `/opt/metis-config/compose.env` (opcionalno)
+
 Frontend env:
 - `VITE_API_URL=/api`
 - `VITE_PROXY_TARGET=http://127.0.0.1:8000` za lokalni non-Docker dev
 
-Docker web servis koristi:
-- `VITE_API_URL=/api`
-- `VITE_PROXY_TARGET=http://proxy`
+Produkcijski API env minimum:
+- `APP_ENV=production`
+- `APP_DEBUG=false`
+- `APP_URL=https://blackstorm.dariomijic.com`
+- `APP_FRONTEND_URL=https://blackstorm.dariomijic.com`
+- `APP_KEY=<server-only>`
+- `APP_PREVIOUS_KEYS=` samo privremeno pri rotaciji
+- `SANCTUM_STATEFUL_DOMAINS=blackstorm.dariomijic.com`
+- `CORS_ALLOWED_ORIGINS=https://blackstorm.dariomijic.com`
+
+Security operations i secret rotation:
+- pogledaj [`SECURITY.md`](./SECURITY.md)

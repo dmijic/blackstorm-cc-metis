@@ -1,1 +1,32 @@
 .DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.*
+*.env
+!.env.example
+!*.env.example
+!/apps/api/.env.example
+!/apps/web/.env.example
+!/infra/docker/.env.example
+
+# Local runtime env files
+/apps/api/.env
+/apps/web/.env
+/infra/docker/.env
+/infra/docker/*.local.env
+/infra/docker/*.prod.env
+
+# Dependency directories
+/apps/api/vendor/
+/apps/web/node_modules/
+
+# Build artifacts
+/apps/web/dist/
+/apps/api/storage/*.key
+/apps/api/storage/logs/*.log
+
+# OS / editor noise
+.idea/
+.vscode/

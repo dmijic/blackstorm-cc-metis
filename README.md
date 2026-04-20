@@ -15,6 +15,7 @@ Autorizirana platforma za Recon & Attack Surface Management (ASM).
 
 Detaljna Metis dokumentacija:
 - [`README-METIS.md`](./README-METIS.md) — arhitektura, workflow engine, module catalog, external services, guardrails, reports, script engine i production deploy napomene
+- [`SECURITY.md`](./SECURITY.md) — incident response, secret rotation, port exposure provjere i production hardening operativa
 
 ## Preduvjeti
 
@@ -54,10 +55,10 @@ make first-run
 
 Skripta automatski:
 1. Kreira `.env` iz `.env.example` (ako postoji)
-2. Builda i podiže cijeli Docker stack
-3. Čeka da `api` container postane `healthy`
-4. Popravlja storage/cache permissione
-5. Generira Laravel app key (samo ako nije postavljen)
+2. Generira lokalni Laravel `APP_KEY` ako još nije postavljen
+3. Builda i podiže cijeli Docker stack
+4. Čeka da `api` container postane `healthy`
+5. Popravlja storage/cache permissione
 6. Čisti config i cache
 7. Pokreće sve migracije
 8. Seeda bazu
@@ -71,6 +72,28 @@ Skripta automatski:
 | MailHog | http://localhost:8025 |
 | PostgreSQL | localhost:5432 |
 | Redis | localhost:6379 |
+
+## Environment model
+
+Runtime source of truth nije u tracked fileovima.
+
+Lokalno:
+- `apps/api/.env`
+- `apps/web/.env`
+- `infra/docker/.env`
+
+Produkcija:
+- `/opt/metis-config/apps-api.env`
+- `/opt/metis-config/apps-web.env`
+- `/opt/metis-config/compose.env` (opcionalno, za compose varijable i host portove)
+
+Deploy skripta kopira server-only env fileove u repo neposredno prije `docker compose up`, pa nakon `git pull` nema ručnih hotfixeva po compose fileovima.
+
+Pravila:
+- `apps/api/.env`, `apps/web/.env` i `infra/docker/.env` nisu trackani
+- `APP_KEY` više nije hardcodan u compose fileovima
+- produkcijski frontend koristi relativni `/api`
+- produkcijski env fileovi ostaju izvan repoa
 
 ---
 
@@ -174,6 +197,8 @@ make logs        # praćenje logova
 make migrate     # php artisan migrate
 make seed        # php artisan db:seed
 make test        # phpunit
+make deploy-prod # production deploy (server-only env + prod override)
+make verify-hardening # sigurnosni sanity checkovi
 ```
 
 ## Ručne artisan komande
@@ -260,6 +285,27 @@ Napomena:
 - **Audit log**: Sve akcije se bilježe u `metis_audit_logs`
 - **God Mode**: Automatski aktivan za korisnika `root` (role: SuperAdmin)
 
+## Security posture
+
+Očekivani public surface na produkcijskom serveru:
+- `22`
+- `80`
+- `443`
+
+Očekivani internal / loopback surface:
+- `127.0.0.1:5173` → frontend container
+- `127.0.0.1:8000` → nginx proxy za Laravel API
+- `127.0.0.1:5432` → PostgreSQL
+- `127.0.0.1:6379` → Redis
+- `127.0.0.1:1025` → MailHog SMTP
+- `127.0.0.1:8025` → MailHog UI
+
+Provjera:
+
+```bash
+ss -ltnp
+```
+
 ## Threat Intel integracije
 
 Konfiguriraju se kroz Settings → External Services:
@@ -275,12 +321,13 @@ Konfiguriraju se kroz Settings → External Services:
 ## Arhitektura i deploy
 
 - Frontend koristi relativni `/api` pristup; u lokalnom developmentu Vite proxy prosljeđuje `/api` i `/sanctum` prema backendu.
+- Production safety util u frontendu ignorira `localhost` API base ako aplikacija nije otvorena na lokalnom originu.
 - Docker portovi su loopback-bound (`127.0.0.1`) tako da ostaju kompatibilni s host-level nginx reverse proxy modelom.
 - Production ingress ostaje na host nginxu:
   - `https://blackstorm.dariomijic.com/` → `127.0.0.1:5173`
   - `https://blackstorm.dariomijic.com/api` → `127.0.0.1:8000`
   - `https://blackstorm.dariomijic.com/sanctum` → `127.0.0.1:8000`
-- DB i Redis nisu javno izloženi izvan loopbacka.
+- DB, Redis i MailHog nisu javno izloženi izvan loopbacka.
 
 ## Docker kontejneri
 
@@ -305,10 +352,106 @@ docker compose -f infra/docker/docker-compose.yml exec -T api php artisan migrat
 docker compose -f infra/docker/docker-compose.yml exec -T api php artisan db:seed --force
 ```
 
-Frontend env:
-- `apps/web/.env.example` sada koristi `VITE_API_URL=/api`
-- lokalni Vite proxy koristi `VITE_PROXY_TARGET=http://127.0.0.1:8000`
-- Docker web servis postavlja `VITE_PROXY_TARGET=http://proxy`
+## Local dev vs docker dev vs production
+
+Lokalni non-Docker frontend:
+- `apps/web/.env`:
+  - `VITE_API_URL=/api`
+  - `VITE_PROXY_TARGET=http://127.0.0.1:8000`
+- `npm run dev` u `apps/web`
+
+Lokalni Docker dev:
+- `./scripts/first_run.sh`
+- compose koristi `apps/api/.env`, `apps/web/.env` i `infra/docker/.env`
+
+Produkcija:
+- source of truth su fileovi u `/opt/metis-config`
+- deploy koristi:
+  - `infra/docker/docker-compose.yml`
+  - `infra/docker/docker-compose.prod.yml`
+- host nginx + certbot ostaju nepromijenjeni
+- frontend koristi relativni `/api`, ne `localhost`
+
+## Production deploy
+
+Server-side deploy:
+
+```bash
+cd /srv/blackstorm-command-center
+./scripts/deploy-prod.sh
+```
+
+Preporučeni helper:
+
+```bash
+sudo ln -sf /srv/blackstorm-command-center/scripts/metis-deploy /usr/local/bin/metis-deploy
+metis-deploy
+```
+
+Deploy skripta radi:
+1. `git fetch origin`
+2. `git reset --hard origin/main`
+3. kopira server-only env fileove iz `/opt/metis-config`
+4. podiže stack s base + prod compose fileovima
+5. pokreće migracije
+6. radi `php artisan optimize:clear`
+7. restarta worker i scheduler
+8. ispisuje `docker compose ps` i health provjere
+
+## Server-only config bootstrap
+
+Na serveru pripremi barem:
+
+```bash
+sudo mkdir -p /opt/metis-config
+sudo cp apps/api/.env.example /opt/metis-config/apps-api.env
+sudo cp apps/web/.env.example /opt/metis-config/apps-web.env
+sudo cp infra/docker/.env.example /opt/metis-config/compose.env
+sudo chmod 600 /opt/metis-config/apps-api.env /opt/metis-config/apps-web.env /opt/metis-config/compose.env
+```
+
+Produkcijski minimum u `/opt/metis-config/apps-api.env`:
+- `APP_ENV=production`
+- `APP_DEBUG=false`
+- `APP_URL=https://blackstorm.dariomijic.com`
+- `APP_FRONTEND_URL=https://blackstorm.dariomijic.com`
+- `APP_KEY=<server-only value>`
+- `SANCTUM_STATEFUL_DOMAINS=blackstorm.dariomijic.com`
+- `CORS_ALLOWED_ORIGINS=https://blackstorm.dariomijic.com`
+
+Produkcijski minimum u `/opt/metis-config/apps-web.env`:
+- `VITE_API_URL=/api`
+
+## APP_KEY rotacija
+
+```bash
+php -r 'echo "base64:".base64_encode(random_bytes(32)).PHP_EOL;'
+```
+
+Zatim u `/opt/metis-config/apps-api.env`:
+- `APP_KEY=<novi_kljuc>`
+- `APP_PREVIOUS_KEYS=<stari_kljuc>` privremeno, dok ne ponovno spremiš sve enkriptirane integration secrets
+
+Nakon redeploya ukloni stari ključ iz `APP_PREVIOUS_KEYS`.
+
+Detaljan incident response i history cleanup upute su u [`SECURITY.md`](./SECURITY.md).
+
+## Verification
+
+Compose i secret hygiene sanity check:
+
+```bash
+./scripts/verify-hardening.sh
+```
+
+Ručno:
+
+```bash
+docker compose -f infra/docker/docker-compose.yml -f infra/docker/docker-compose.prod.yml config >/dev/null
+curl -fsS http://127.0.0.1:8000/api/health
+curl -fsSI http://127.0.0.1:5173
+ss -ltnp | grep -E ':(5173|8000|5432|6379|1025|8025)\s'
+```
 
 Docker host port override:
 - ako host već koristi `5432`, pokreni compose s `POSTGRES_HOST_PORT=5433`
